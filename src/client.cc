@@ -6,9 +6,13 @@ using namespace v8;
 Persistent<Function> Client::constructor;
 
 Client::Client() {
+    cluster_ = cass_cluster_new();
+    session_ = cass_session_new();
 }
 
 Client::~Client() {
+    cass_session_free(session_);
+    cass_cluster_free(cluster_);
 }
 
 void Client::Init() {
@@ -20,7 +24,7 @@ void Client::Init() {
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     // Prototype
-    NODE_SET_PROTOTYPE_METHOD(tpl, "connect", Connect);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -53,10 +57,25 @@ NAN_METHOD(Client::New) {
     }
 }
 
-NAN_METHOD(Client::Connect) {
+DEFINE_METHOD(Connect) {
     NanScope();
 
-    printf("in Client::Connect\n");
+    // XXX/demmer:
+    // 1. make this async
+    // 2. parameterize contact points and other options
+    cass_cluster_set_contact_points(cluster_, "127.0.0.1");
+
+    CassFuture* future = cass_session_connect(session_, cluster_);
+    cass_future_wait(future);
+
+    CassError rc = cass_future_error_code(future);
+    if (rc != CASS_OK) {
+        CassString message = cass_future_error_message(future);
+        std::string msg(message.data, message.length);
+        cass_future_free(future);
+        return NanThrowError(msg.c_str());
+    }
+    cass_future_free(future);
 
     NanReturnUndefined();
 }
