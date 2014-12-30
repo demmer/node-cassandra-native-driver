@@ -57,7 +57,9 @@
         "cpp-driver/src/type_parser.cpp",
         "cpp-driver/src/types.cpp",
         "cpp-driver/src/uuids.cpp",
-        "cpp-driver/src/value.cpp"
+        "cpp-driver/src/value.cpp",
+        "src/cassandra-driver.cc",
+        "src/client.cc"
       ],
       "include_dirs": [
             "<!(node -e \"require('nan')\")",
