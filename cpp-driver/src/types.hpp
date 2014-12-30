@@ -65,7 +65,9 @@ EXTERNAL_TYPE(cass::SslContext, CassSsl);
 EXTERNAL_TYPE(cass::Schema, CassSchema);
 EXTERNAL_TYPE(cass::SchemaMetadata, CassSchemaMeta);
 EXTERNAL_TYPE(cass::SchemaMetadataField, CassSchemaMetaField);
+#ifndef DISABLE_UUID_GENERATION
 EXTERNAL_TYPE(cass::UuidGen, CassUuidGen);
+#endif
 
 }
 

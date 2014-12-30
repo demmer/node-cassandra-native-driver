@@ -14,6 +14,8 @@
   limitations under the License.
 */
 
+#ifndef DISABLE_UUID_GENERATION
+
 #include "uuids.hpp"
 
 #include "cassandra.h"
@@ -263,3 +265,5 @@ uint64_t UuidGen::monotonic_timestamp() {
 }
 
 } // namespace cass
+
+#endif // DISABLE_UUID_GENERATION
