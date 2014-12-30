@@ -16,6 +16,7 @@
         "cpp-driver/src/common.cpp",
         "cpp-driver/src/connection.cpp",
         "cpp-driver/src/control_connection.cpp",
+        "cpp-driver/src/dc_aware_policy.cpp",
         "cpp-driver/src/error_response.cpp",
         "cpp-driver/src/event_response.cpp",
         "cpp-driver/src/execute_request.cpp",
