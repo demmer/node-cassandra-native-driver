@@ -1,0 +1,15 @@
+{
+  "name": "node-cassandra-native-driver",
+  "version": "0.1.0",
+  "description": "node.js addon for the the C++ native cassandra driver",
+  "main": "index.js",
+  "repository": "https://github.com/jut-io/node-cassandra-native-driver",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Michael Demmer <demmer@jut.io>",
+  "license": "MIT",
+  "dependencies": {
+    "nan": "^1.4.1"
+  }
+}
