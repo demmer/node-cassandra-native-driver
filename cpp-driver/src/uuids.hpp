@@ -14,6 +14,8 @@
   limitations under the License.
 */
 
+#ifndef DISABLE_UUID_GENERATION
+
 #ifndef __CASS_UUIDS_HPP_INCLUDED__
 #define __CASS_UUIDS_HPP_INCLUDED__
 
@@ -53,3 +55,5 @@ private:
 } // namespace cass
 
 #endif
+
+#endif // DISABLE_UUID_GENERATION

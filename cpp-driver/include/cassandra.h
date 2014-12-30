@@ -2340,6 +2340,7 @@ cass_value_secondary_sub_type(const CassValue* collection);
  * UUID
  *
  ************************************************************************************/
+#ifndef DISABLE_UUID_GENERATION
 
 /**
  * Creates a new UUID generator.
@@ -2416,6 +2417,8 @@ CASS_EXPORT void
 cass_uuid_gen_from_time(CassUuidGen* uuid_gen,
                         cass_uint64_t timestamp,
                         CassUuid* output);
+
+#endif // DISABLE_UUID_GENERATION
 
 /**
  * Sets the UUID to the minimum V1 (time) value for the specified time.
