@@ -63,7 +63,10 @@
             "cpp-driver/include",
             "cpp-driver/src/third_party/boost",
             "cpp-driver/src/third_party/rapidjson"
-        ]
+      ],
+      "defines": [
+        "DISABLE_UUID_GENERATION"
+      ]
     }
   ]
 }
