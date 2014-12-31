@@ -1,23 +1,13 @@
+#ifndef __CASS_DRIVER_CLIENT_H__
+#define __CASS_DRIVER_CLIENT_H__
 
 #include "cassandra.h"
 #include "node.h"
 #include "nan.h"
+#include "wrapped-method.h"
 #include <queue>
 
 typedef std::queue<const CassResult*> CassResultQueue;
-
-#define WRAPPED_METHOD_NAME(_name) JS##_name
-
-#define DECLARE_METHOD(_name) \
-    static NAN_METHOD(WRAPPED_METHOD_NAME(_name)); \
-    NAN_METHOD(_name);
-
-#define DEFINE_METHOD(_name) \
-NAN_METHOD(Client::JS##_name) { \
-    Client* obj = ObjectWrap::Unwrap<Client>(args.Holder()); \
-    return obj->_name(args); \
-} \
-NAN_METHOD(Client::_name)
 
 class Client : public node::ObjectWrap {
 public:
@@ -45,7 +35,8 @@ private:
 
     static NAN_METHOD(New);
 
-    DECLARE_METHOD(Connect);
-
+    WRAPPED_METHOD_DECL(Connect);
     static v8::Persistent<v8::Function> constructor;
 };
+
+#endif

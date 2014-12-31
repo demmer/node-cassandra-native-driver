@@ -57,7 +57,7 @@ NAN_METHOD(Client::New) {
     }
 }
 
-DEFINE_METHOD(Connect) {
+WRAPPED_METHOD(Connect) {
     NanScope();
 
     // XXX/demmer:
