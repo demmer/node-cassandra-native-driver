@@ -1,5 +1,5 @@
 {
-  "name": "node-cassandra-native-driver",
+  "name": "cassandra-native-driver",
   "version": "0.1.0",
   "description": "node.js addon for the the C++ native cassandra driver",
   "main": "index.js",
@@ -11,5 +11,14 @@
   "license": "MIT",
   "dependencies": {
     "nan": "^1.4.1"
-  }
+  },
+  "files": [
+      "README.md",
+      "LICENSE",
+      "binding.gyp",
+      "cpp-driver",
+      "lib",
+      "src"
+  ]
+
 }
