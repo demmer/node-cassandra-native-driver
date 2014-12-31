@@ -29,6 +29,18 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         cass_statement_bind_bytes(statement, i, data);
         return true;
     }
+    case CASS_VALUE_TYPE_LIST: {
+        Local<Array> array = value.As<Array>();
+        size_t length = array->Length();
+        CassCollection* list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array->Length());
+        for (size_t i = 0; i < length; ++i) {
+            Local<Value> value = array->Get(i);
+            append_collection(list, value);
+        }
+        cass_statement_bind_collection(statement, i, list);
+        return true;
+    }
+
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
@@ -46,7 +58,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
     case CASS_VALUE_TYPE_INET:
-    case CASS_VALUE_TYPE_LIST:
     case CASS_VALUE_TYPE_MAP:
     case CASS_VALUE_TYPE_SET:
         return false;
