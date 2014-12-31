@@ -1,6 +1,6 @@
 
 #include "client.h"
-
+#include "type-mapper.h"
 
 using namespace v8;
 
@@ -83,44 +83,6 @@ WRAPPED_METHOD(Connect) {
 
     NanReturnUndefined();
 }
-
-bool
-Client::bind_param(CassStatement* statement, u_int32_t i, Local<Value>& val) {
-    if (val->IsObject()) {
-        Local<Object> obj = val.As<Object>();
-        if (node::Buffer::HasInstance(val)) {
-            CassBytes data;
-            data.data = (cass_byte_t*) node::Buffer::Data(obj);
-            data.size = node::Buffer::Length(obj);
-            cass_statement_bind_bytes(statement, i, data);
-            return true;
-        } else {
-            return false;
-        }
-    } else {
-        return false;
-    }
-}
-
-bool
-Client::get_column(const CassRow* row, size_t i, Local<Object>& element, QueryState* state)
-{
-    Column& col_info = state->column_info_[i];
-
-    switch(col_info.type_) {
-    case CASS_VALUE_TYPE_BLOB:
-        CassBytes blob;
-        cass_value_get_bytes(cass_row_get_column(row, i), &blob);
-        element->Set(col_info.name_, state->buffer_pool_.allocate(blob.data, blob.size));
-        break;
-
-    default:
-        return false;
-    };
-
-    return true;
-}
-
 Client::QueryState::QueryState(Client* client)
 {
     client_ = client;
@@ -164,7 +126,7 @@ WRAPPED_METHOD(Query) {
 
     for (u_int32_t i = 0; i < params->Length(); ++i) {
         Local<Value> arg = params->Get(i);
-        if (! bind_param(state->statement_, i, arg)) {
+        if (! TypeMapper::bind_statement_param(state->statement_, i, arg)) {
             delete state;
             return NanThrowError("unable to convert statement argument");
         }
@@ -200,13 +162,13 @@ Client::result_ready(CassFuture* future, QueryState* state)
     Result result;
     result.result_ = cass_future_get_result(future);
     result.code_ = cass_future_error_code(future);
-
     if (result.code_ == CASS_OK) {
         result.more_ = cass_result_has_more_pages(result.result_);
     } else {
         CassString error = cass_future_error_message(future);
         result.error_ = std::string(error.data, error.length);
         cass_future_free(future);
+        result.more_ = cass_false;
     }
 
 
@@ -249,7 +211,7 @@ Client::async_ready(QueryState* state)
 
     if (!has_more_pages) {
         printf("query done\n");
-        delete state;
+//        delete state;
         Unref();
     }
 }
@@ -285,7 +247,11 @@ Client::result_callback(const Result& result, QueryState* state) {
         Local<Object> element = NanNew<Object>();
 
         for (size_t i = 0; i < num_columns; ++i) {
-            if (! get_column(row, i, element, state)) {
+            Local<Value> value;
+            if (TypeMapper::column_value(&value, state->column_info_[i].type_,
+                                         row, i, &state->buffer_pool_)) {
+                element->Set(state->column_info_[i].name_, value);
+            } else {
                 Handle<Value> argv[] = {
                     NanError("unable to obtain column value")
                 };

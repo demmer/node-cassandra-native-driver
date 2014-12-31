@@ -60,7 +60,8 @@
         "cpp-driver/src/value.cpp",
         "src/buffer-pool.cc",
         "src/cassandra-driver.cc",
-        "src/client.cc"
+        "src/client.cc",
+        "src/type-mapper.cc"
       ],
       "include_dirs": [
             "<!(node -e \"require('nan')\")",

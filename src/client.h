@@ -76,9 +76,6 @@ private:
     void result_ready(CassFuture* future, QueryState* state);
     void result_callback(const Result& result, QueryState* state);
 
-    bool bind_param(CassStatement* statement, u_int32_t i, v8::Local<v8::Value>& val);
-    bool get_column(const CassRow* row, size_t i, v8::Local<v8::Object>& element, QueryState* state);
-
     static v8::Persistent<v8::Function> constructor;
 };
 
