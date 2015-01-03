@@ -61,6 +61,7 @@
         "src/buffer-pool.cc",
         "src/cassandra-driver.cc",
         "src/client.cc",
+        "src/query.cc",
         "src/type-mapper.cc"
       ],
       "include_dirs": [
