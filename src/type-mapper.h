@@ -18,8 +18,8 @@ public:
     static bool append_collection(CassCollection* collection,
                                   v8::Local<v8::Value>& value);
 
-    // Get a Javascript value for the given column from a result
-    static bool column_value(v8::Local<v8::Value>* value, CassValueType type,
+    // Get a Javascript result value for the i'th column from the specified row.
+    static bool column_value(v8::Local<v8::Value>* result, CassValueType type,
                              const CassRow* row, size_t i, BufferPool* pool);
 };
 

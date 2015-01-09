@@ -11,6 +11,9 @@ TypeMapper::infer_type(const Local<Value>& value)
     else if (value->IsArray()) {
         return CASS_VALUE_TYPE_LIST;
     }
+    else if (value->IsString()) {
+        return CASS_VALUE_TYPE_VARCHAR;
+    }
     else {
         return CASS_VALUE_TYPE_UNKNOWN;
     }
@@ -40,7 +43,12 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         cass_statement_bind_collection(statement, i, list);
         return true;
     }
-
+    case CASS_VALUE_TYPE_VARCHAR: {
+        String::AsciiValue ascii_str(value.As<String>());
+        CassString str = cass_string_init(*ascii_str);
+        cass_statement_bind_string(statement, i, str);
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
@@ -54,7 +62,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
-    case CASS_VALUE_TYPE_VARCHAR:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
     case CASS_VALUE_TYPE_INET:
@@ -104,14 +111,25 @@ TypeMapper::append_collection(CassCollection* collection, Local<Value>& value)
 }
 
 bool
-TypeMapper::column_value(v8::Local<v8::Value>* value, CassValueType type,
+TypeMapper::column_value(v8::Local<v8::Value>* result, CassValueType type,
                          const CassRow* row, size_t i, BufferPool* pool)
 {
+    const CassValue* value = cass_row_get_column(row, i);
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
         CassBytes blob;
-        cass_value_get_bytes(cass_row_get_column(row, i), &blob);
-        *value = pool->allocate(blob.data, blob.size);
+        if (cass_value_get_bytes(value, &blob) != CASS_OK) {
+            return false;
+        }
+        *result = pool->allocate(blob.data, blob.size);
+        return true;
+    }
+    case CASS_VALUE_TYPE_VARCHAR: {
+        CassString str;
+        if (cass_value_get_string(value, &str) != CASS_OK) {
+            return false;
+        }
+        *result = NanNew<String>(str.data, str.length);
         return true;
     }
     case CASS_VALUE_TYPE_UNKNOWN:
@@ -127,7 +145,6 @@ TypeMapper::column_value(v8::Local<v8::Value>* value, CassValueType type,
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
-    case CASS_VALUE_TYPE_VARCHAR:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
     case CASS_VALUE_TYPE_INET:
