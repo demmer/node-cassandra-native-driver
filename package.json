@@ -10,15 +10,15 @@
   "author": "Michael Demmer <demmer@jut.io>",
   "license": "MIT",
   "dependencies": {
+    "debug": "^2.1.1",
     "nan": "^1.4.1"
   },
   "files": [
-      "README.md",
-      "LICENSE",
-      "binding.gyp",
-      "cpp-driver",
-      "lib",
-      "src"
+    "README.md",
+    "LICENSE",
+    "binding.gyp",
+    "cpp-driver",
+    "lib",
+    "src"
   ]
-
 }
