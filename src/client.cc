@@ -9,7 +9,7 @@ Persistent<Function> Client::constructor;
 Client::Client() {
     printf("In Client constructor %p\n", this);
     cluster_ = cass_cluster_new();
-    session_ = cass_session_new();
+    session_ = NULL;
     async_ = new uv_async_t();
     uv_async_init(uv_default_loop(), async_, Client::on_async_ready);
     async_->data = this;
@@ -24,7 +24,10 @@ async_destroy(uv_handle_t* handle)
 
 Client::~Client() {
     printf("In Client destructor %p\n", this);
-    cass_session_free(session_);
+    if (session_) {
+        cass_session_free(session_);
+        session_ = NULL;
+    }
     cass_cluster_free(cluster_);
     delete callback_;
     uv_close((uv_handle_t*) async_, async_destroy);
@@ -84,6 +87,7 @@ WRAPPED_METHOD(Client, Connect) {
     cass_cluster_set_contact_points(cluster_, *address);
     callback_ = new NanCallback(args[1].As<Function>());
 
+    session_ = cass_session_new();
     CassFuture* future = cass_session_connect(session_, cluster_);
     cass_future_set_callback(future, on_result_ready, this);
     NanReturnUndefined();
@@ -134,8 +138,9 @@ Client::async_ready() {
 }
 
 WRAPPED_METHOD(Client, NewQuery) {
-    NanEscapableScope();
+    NanScope();
     Local<Value> query = Query::NewInstance();
-    node::ObjectWrap::Unwrap<Query>(query->ToObject())->set_client(handle_);
+    Local<Object> self = Local<Object>::New(handle_);
+    node::ObjectWrap::Unwrap<Query>(query->ToObject())->set_client(self);
     NanReturnValue(query);
 }

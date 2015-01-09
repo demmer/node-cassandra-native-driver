@@ -22,9 +22,11 @@ public:
 
     // Stash the reference to the parent client object and extract the pointer
     // to the session.
-    void set_client(v8::Persistent<v8::Object>& client);
+    void set_client(v8::Local<v8::Object>& client);
 
 private:
+    u_int32_t id_;
+
     Query();
     ~Query();
 
@@ -56,7 +58,6 @@ private:
     static void on_async_ready(uv_async_t* handle, int status);
     void async_ready();
 
-    v8::Persistent<Object> client_;
     CassSession* session_;
     CassStatement* statement_;
 
@@ -68,7 +69,7 @@ private:
     CassError result_code_;
     std::string result_error_;
 
-    uv_async_t async_;
+    uv_async_t* async_;
 
     BufferPool buffer_pool_;
 

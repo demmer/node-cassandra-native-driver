@@ -4,6 +4,9 @@
 #include "client.h"
 #include "type-mapper.h"
 
+#define dprintf(...)
+//#define dprintf printf
+
 Persistent<Function> Query::constructor;
 
 void Query::Init() {
@@ -40,24 +43,44 @@ NAN_METHOD(Query::New) {
     NanReturnValue(args.This());
 }
 
+u_int32_t COUNT = 0;
+u_int32_t ACTIVE = 0;
+
 Query::Query()
 {
+    id_ = COUNT;
+    ++COUNT;
+    ++ACTIVE;
+
+    dprintf("Query::Query %u %u\n", id_, ACTIVE);
     fetching_ = false;
     result_ = NULL;
     callback_ = NULL;
+    statement_ = NULL;
 
-    uv_async_init(uv_default_loop(), &async_, Query::on_async_ready);
-    async_.data = this;
+    async_ = new uv_async_t();
+    uv_async_init(uv_default_loop(), async_, Query::on_async_ready);
+    async_->data = this;
+}
+
+static void
+async_destroy(uv_handle_t* handle)
+{
+    uv_async_t* async = (uv_async_t*)handle;
+    delete async;
 }
 
 Query::~Query()
 {
-    printf("Query::~Query\n");
+    --ACTIVE;
+    dprintf("Query::~Query id %u active %u\n", id_, ACTIVE);
 
     if (result_) {
         cass_result_free(result_);
     }
-    cass_statement_free(statement_);
+    if (statement_) {
+        cass_statement_free(statement_);
+    }
     if (callback_) {
         delete callback_;
     }
@@ -66,14 +89,16 @@ Query::~Query()
         column_info_[i].name_.Dispose();
     }
     column_info_.empty();
-    uv_close((uv_handle_t*)&async_, NULL);
+
+    uv_handle_t* async_handle = (uv_handle_t*)async_;
+    uv_close(async_handle, async_destroy);
 }
 
 void
-Query::set_client(v8::Persistent<v8::Object>& client)
+Query::set_client(Local<Object>& client)
 {
-    client_ = client;
-    session_ = node::ObjectWrap::Unwrap<Client>(client->ToObject())->get_session();
+    handle_->Set(NanNew("client"), client);
+    session_ = node::ObjectWrap::Unwrap<Client>(client)->get_session();
 }
 
 WRAPPED_METHOD(Query, Bind)
@@ -86,6 +111,8 @@ WRAPPED_METHOD(Query, Bind)
 
     Local<String> query = args[0].As<String>();
     Local<Array> params = args[1].As<Array>();
+
+    handle_->Set(NanNew("query"), query);
 
     String::AsciiValue query_str(query);
     statement_ = cass_statement_new(cass_string_init(*query_str), params->Length());
@@ -110,11 +137,18 @@ WRAPPED_METHOD(Query, Execute)
         return NanThrowError("execute requires 2 arguments: options, callback");
     }
 
+    if (session_ == NULL) {
+        return NanThrowError("client must be connected");
+    }
+
     // Guard against running fetch multiple times in parallel
     if (fetching_) {
         return NanThrowError("fetch already in progress");
     }
     fetching_ = true;
+
+    // Need a reference while the operation is in progress
+    Ref();
 
     Local<Object> options = args[0].As<Object>();
     NanCallback* callback = new NanCallback(args[1].As<Function>());
@@ -127,8 +161,6 @@ WRAPPED_METHOD(Query, Execute)
 
     cass_statement_set_paging_size(statement_, paging_size);
 
-    // Need a reference while the operation is in progress
-    Ref();
 
     callback_ = callback;
     fetching_ = true;
@@ -156,7 +188,6 @@ Query::on_result_ready(CassFuture* future, void* data)
 void
 Query::result_ready(CassFuture* future)
 {
-    fetching_ = false;
     result_ = cass_future_get_result(future);
     result_code_ = cass_future_error_code(future);
     if (result_code_ != CASS_OK) {
@@ -165,7 +196,7 @@ Query::result_ready(CassFuture* future)
     }
     cass_future_free(future);
 
-    uv_async_send(&async_);
+    uv_async_send(async_);
 }
 
 // Callback on the main v8 thread when results have been posted
@@ -190,9 +221,8 @@ Query::async_ready()
         return;
     }
 
-    // Stash a reference to the query in the result object, then release the
-    // reference that was held during the fetch to avoid leaking.
     Local<Array> res = NanNew<Array>();
+    fetching_ = false;
 
     cass_bool_t more = cass_result_has_more_pages(result_);
     res->Set(NanNew("more"), more ? NanTrue() : NanFalse() );
@@ -245,4 +275,6 @@ Query::async_ready()
         res
     };
     callback_->Call(2, argv);
+
+    Unref();
 }
