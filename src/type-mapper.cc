@@ -14,6 +14,9 @@ TypeMapper::infer_type(const Local<Value>& value)
     else if (value->IsString()) {
         return CASS_VALUE_TYPE_VARCHAR;
     }
+    else if (value->IsInt32()) {
+        return CASS_VALUE_TYPE_INT;
+    }
     else {
         return CASS_VALUE_TYPE_UNKNOWN;
     }
@@ -49,6 +52,11 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         cass_statement_bind_string(statement, i, str);
         return true;
     }
+    case CASS_VALUE_TYPE_INT: {
+        cass_int32_t intValue = value.As<Number>()->Int32Value();
+        cass_statement_bind_int32(statement, i, intValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
@@ -58,7 +66,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_DOUBLE:
     case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_INT:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
@@ -85,6 +92,11 @@ TypeMapper::append_collection(CassCollection* collection, Local<Value>& value)
         cass_collection_append_bytes(collection, data);
         return true;
     }
+    case CASS_VALUE_TYPE_INT: {
+        cass_int32_t intValue = value.As<Number>()->Int32Value();
+        cass_collection_append_int32(collection, intValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
@@ -94,7 +106,6 @@ TypeMapper::append_collection(CassCollection* collection, Local<Value>& value)
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_DOUBLE:
     case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_INT:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
@@ -132,6 +143,14 @@ TypeMapper::column_value(v8::Local<v8::Value>* result, CassValueType type,
         *result = NanNew<String>(str.data, str.length);
         return true;
     }
+    case CASS_VALUE_TYPE_INT: {
+        cass_int32_t intValue;
+        if (cass_value_get_int32(value, &intValue) != CASS_OK) {
+            return false;
+        }
+        *result = NanNew<Number>(intValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
@@ -141,7 +160,6 @@ TypeMapper::column_value(v8::Local<v8::Value>* result, CassValueType type,
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_DOUBLE:
     case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_INT:
     case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
