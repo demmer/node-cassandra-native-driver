@@ -73,7 +73,7 @@ NAN_METHOD(Client::New) {
     }
 }
 
-WRAPPED_METHOD(Connect) {
+WRAPPED_METHOD(Client, Connect) {
     NanScope();
     if (args.Length() != 2) {
         return NanThrowError("connect requires 2 arguments: address and callback");
@@ -133,7 +133,7 @@ Client::async_ready() {
     callback_->Call(1, argv);
 }
 
-WRAPPED_METHOD(NewQuery) {
+WRAPPED_METHOD(Client, NewQuery) {
     NanScope();
 
     if (args.Length() != 4) {
