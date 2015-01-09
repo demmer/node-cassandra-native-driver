@@ -40,7 +40,7 @@ void Client::Init() {
 
     // Prototype
     NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "query", WRAPPED_METHOD_NAME(NewQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -134,29 +134,8 @@ Client::async_ready() {
 }
 
 WRAPPED_METHOD(Client, NewQuery) {
-    NanScope();
-
-    if (args.Length() != 4) {
-        return NanThrowError("query requires 4 arguments: query, params, options, callback");
-    }
-
-    Local<String> query_str = args[0].As<String>();
-    Local<Array> params = args[1].As<Array>();
-    Local<Object> options = args[2].As<Object>();
-    NanCallback* callback = new NanCallback(args[3].As<Function>());
-
-    Query* query;
-    Local<Value> query_obj = options->Get(NanNew("query"));
-    if (query_obj->IsUndefined()) {
-        query_obj = Query::NewInstance();
-        query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
-        if (! query->bind(handle_, query_str, params)) {
-            return NanThrowError("unable to bind statement params");
-        }
-    } else {
-        query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
-    }
-    query->fetch(session_, options, callback);
-
-    NanReturnUndefined();
+    NanEscapableScope();
+    Local<Value> query = Query::NewInstance();
+    node::ObjectWrap::Unwrap<Query>(query->ToObject())->set_client(handle_);
+    NanReturnValue(query);
 }

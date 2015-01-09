@@ -14,6 +14,9 @@ void Query::Init() {
     tpl->SetClassName(NanNew("Query"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
+    NODE_SET_PROTOTYPE_METHOD(tpl, "bind", WRAPPED_METHOD_NAME(Bind));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
+
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
 
@@ -29,20 +32,12 @@ Local<Object> Query::NewInstance() {
 }
 
 NAN_METHOD(Query::New) {
-    NanScope();
+    NanEscapableScope();
 
-    if (args.IsConstructCall()) {
-        // Invoked as constructor: `new Query(...)`
-        Query* obj = new Query();
-        obj->Wrap(args.This());
-        NanReturnValue(args.This());
-    } else {
-        // Invoked as plain function `Query(...)`, turn into construct call.
-        const int argc = 1;
-        Local<Value> argv[argc] = { args[0] };
-        Local<Function> cons = NanNew<Function>(constructor);
-        NanReturnValue(cons->NewInstance(argc, argv));
-    }
+    Query* obj = new Query();
+    obj->Wrap(args.This());
+
+    NanReturnValue(args.This());
 }
 
 Query::Query()
@@ -55,26 +50,10 @@ Query::Query()
     async_.data = this;
 }
 
-bool
-Query::bind(Persistent<Object>& client, Local<String>& query, Local<Array>& params)
-{
-    client_ = client;
-
-    String::AsciiValue query_str(query);
-    statement_ = cass_statement_new(cass_string_init(*query_str), params->Length());
-
-    for (u_int32_t i = 0; i < params->Length(); ++i) {
-        Local<Value> arg = params->Get(i);
-        if (! TypeMapper::bind_statement_param(statement_, i, arg)) {
-            return false;
-        }
-    }
-    return true;
-}
-
 Query::~Query()
 {
     printf("Query::~Query\n");
+
     if (result_) {
         cass_result_free(result_);
     }
@@ -91,16 +70,54 @@ Query::~Query()
 }
 
 void
-Query::fetch(CassSession* session, Local<Object>& options, NanCallback* callback)
+Query::set_client(v8::Persistent<v8::Object>& client)
 {
+    client_ = client;
+    session_ = node::ObjectWrap::Unwrap<Client>(client->ToObject())->get_session();
+}
+
+WRAPPED_METHOD(Query, Bind)
+{
+    NanScope();
+
+    if (args.Length() != 2) {
+        return NanThrowError("bind requires 2 arguments: query, params");
+    }
+
+    Local<String> query = args[0].As<String>();
+    Local<Array> params = args[1].As<Array>();
+
+    String::AsciiValue query_str(query);
+    statement_ = cass_statement_new(cass_string_init(*query_str), params->Length());
+
+    for (u_int32_t i = 0; i < params->Length(); ++i) {
+        Local<Value> arg = params->Get(i);
+        if (! TypeMapper::bind_statement_param(statement_, i, arg)) {
+            char err[1024];
+            sprintf(err, "error binding statement argument %d", i);
+            return NanThrowError(err);
+        }
+    }
+
+    NanReturnUndefined();
+}
+
+WRAPPED_METHOD(Query, Execute)
+{
+    NanScope();
+
+    if (args.Length() != 2) {
+        return NanThrowError("execute requires 2 arguments: options, callback");
+    }
+
     // Guard against running fetch multiple times in parallel
     if (fetching_) {
-        Handle<Value> argv[] = {
-            NanError("fetch already in progress")
-        };
-        callback->Call(1, argv);
-        return;
+        return NanThrowError("fetch already in progress");
     }
+    fetching_ = true;
+
+    Local<Object> options = args[0].As<Object>();
+    NanCallback* callback = new NanCallback(args[1].As<Function>());
 
     u_int32_t paging_size = 5000;
     Local<String> fetchSize = NanNew("fetchSize");
@@ -123,8 +140,9 @@ Query::fetch(CassSession* session, Local<Object>& options, NanCallback* callback
         cass_result_free(result_);
     }
 
-    CassFuture* future = cass_session_execute(session, statement_);
+    CassFuture* future = cass_session_execute(session_, statement_);
     cass_future_set_callback(future, on_result_ready, this);
+    NanReturnUndefined();
 }
 
 // Callback on the I/O thread when a result is ready from cassandra
@@ -175,7 +193,6 @@ Query::async_ready()
     // Stash a reference to the query in the result object, then release the
     // reference that was held during the fetch to avoid leaking.
     Local<Array> res = NanNew<Array>();
-    res->Set(NanNew("query"), handle_);
 
     cass_bool_t more = cass_result_has_more_pages(result_);
     res->Set(NanNew("more"), more ? NanTrue() : NanFalse() );

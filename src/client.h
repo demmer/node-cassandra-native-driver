@@ -12,6 +12,7 @@ public:
     static void Init();
     static v8::Local<v8::Object> NewInstance(v8::Local<v8::Value> arg);
 
+    CassSession* get_session() { return session_; }
 private:
     CassCluster* cluster_;
     CassSession* session_;

@@ -4,6 +4,7 @@
 #include "node.h"
 #include "nan.h"
 #include "buffer-pool.h"
+#include "wrapped-method.h"
 #include <vector>
 
 using namespace v8;
@@ -13,21 +14,28 @@ class Client;
 // Wrapper for an in-progress query to the back end
 class Query: public node::ObjectWrap {
 public:
+    // Initialize the class constructor.
     static void Init();
+
+    // Create a new instance of the class.
     static v8::Local<v8::Object> NewInstance();
 
-    // XXX this should just be part of the constructor but for now it may need
-    // to return an error if the type mapping fails.
-    bool bind(v8::Persistent<v8::Object>& client, v8::Local<v8::String>& query,
-              v8::Local<v8::Array>& params);
-    void fetch(CassSession* session, v8::Local<v8::Object>& options,
-               NanCallback* callback);
+    // Stash the reference to the parent client object and extract the pointer
+    // to the session.
+    void set_client(v8::Persistent<v8::Object>& client);
 
 private:
     Query();
     ~Query();
 
+    // The actual implementation of the constructor
     static NAN_METHOD(New);
+
+    // Bind the query and parameters
+    WRAPPED_METHOD_DECL(Bind);
+
+    // Execute the query, potentially retrieving additional pages.
+    WRAPPED_METHOD_DECL(Execute);
 
     // Encapsulation of column metadata that can be cached for each row in the
     // results.
@@ -49,6 +57,7 @@ private:
     void async_ready();
 
     v8::Persistent<Object> client_;
+    CassSession* session_;
     CassStatement* statement_;
 
     bool fetching_;
