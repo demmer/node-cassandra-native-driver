@@ -20,5 +20,11 @@
     "cpp-driver",
     "lib",
     "src"
-  ]
+  ],
+  "devDependencies": {
+    "bluebird": "^2.6.2",
+    "chai": "^1.10.0",
+    "extendable-base": "^0.2.0",
+    "underscore": "^1.7.0"
+  }
 }
