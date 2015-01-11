@@ -1,5 +1,6 @@
 
 #include "client.h"
+#include "prepared-query.h"
 #include "query.h"
 
 using namespace v8;
@@ -44,6 +45,7 @@ void Client::Init() {
     // Prototype
     NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -139,8 +141,24 @@ Client::async_ready() {
 
 WRAPPED_METHOD(Client, NewQuery) {
     NanScope();
-    Local<Value> query = Query::NewInstance();
+    Local<Value> val = Query::NewInstance();
+
+    Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
+
     Local<Object> self = Local<Object>::New(handle_);
-    node::ObjectWrap::Unwrap<Query>(query->ToObject())->set_client(self);
-    NanReturnValue(query);
+    query->set_client(self);
+
+    NanReturnValue(val);
+}
+
+WRAPPED_METHOD(Client, NewPreparedQuery) {
+    NanScope();
+    Local<Value> val = PreparedQuery::NewInstance();
+
+    PreparedQuery* query = node::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
+
+    Local<Object> self = Local<Object>::New(handle_);
+    query->set_client(self);
+
+    NanReturnValue(val);
 }

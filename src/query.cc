@@ -17,6 +17,7 @@ void Query::Init() {
     tpl->SetClassName(NanNew("Query"));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
+    NODE_SET_PROTOTYPE_METHOD(tpl, "parse", WRAPPED_METHOD_NAME(Parse));
     NODE_SET_PROTOTYPE_METHOD(tpl, "bind", WRAPPED_METHOD_NAME(Bind));
     NODE_SET_PROTOTYPE_METHOD(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
 
@@ -57,6 +58,7 @@ Query::Query()
     result_ = NULL;
     callback_ = NULL;
     statement_ = NULL;
+    prepared_ = false;
 
     async_ = new uv_async_t();
     uv_async_init(uv_default_loop(), async_, Query::on_async_ready);
@@ -95,28 +97,63 @@ Query::~Query()
 }
 
 void
-Query::set_client(Local<Object>& client)
+Query::set_client(const Local<Object>& client)
 {
     handle_->Set(NanNew("client"), client);
     session_ = node::ObjectWrap::Unwrap<Client>(client)->get_session();
 }
 
-WRAPPED_METHOD(Query, Bind)
+void
+Query::set_prepared_statement(CassStatement* statement)
+{
+    statement_ = statement;
+    prepared_ = true;
+}
+
+
+WRAPPED_METHOD(Query, Parse)
 {
     NanScope();
 
-    if (args.Length() != 2) {
-        return NanThrowError("bind requires 2 arguments: query, params");
+    if (args.Length() < 1 || args.Length() > 2) {
+        return NanThrowError("invalid arguments");
     }
 
     Local<String> query = args[0].As<String>();
-    Local<Array> params = args[1].As<Array>();
+    Local<Array> params;
 
+    u_int32_t num_params = 0;
+    if (args.Length() == 2) {
+        params = args[1].As<Array>();
+        num_params = params->Length();
+    }
+
+    // Stash the query so the client library can check it later.
     handle_->Set(NanNew("query"), query);
 
     String::AsciiValue query_str(query);
-    statement_ = cass_statement_new(cass_string_init(*query_str), params->Length());
+    statement_ = cass_statement_new(cass_string_init(*query_str), num_params);
 
+    return bind(params);
+}
+
+WRAPPED_METHOD(Query, Bind)
+{
+    if (args.Length() != 1) {
+        return NanThrowError("invalid arguments");
+    }
+
+    if (statement_ == NULL || prepared_ == false) {
+        return NanThrowError("bind can only be called on a prepared query");
+    }
+
+    Local<Array> params = args[0].As<Array>();
+    return bind(params);
+}
+
+_NAN_METHOD_RETURN_TYPE
+Query::bind(Local<Array>& params)
+{
     for (u_int32_t i = 0; i < params->Length(); ++i) {
         Local<Value> arg = params->Get(i);
         if (! TypeMapper::bind_statement_param(statement_, i, arg)) {

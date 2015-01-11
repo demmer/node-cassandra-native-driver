@@ -22,8 +22,10 @@ public:
 
     // Stash the reference to the parent client object and extract the pointer
     // to the session.
-    void set_client(v8::Local<v8::Object>& client);
+    void set_client(const v8::Local<v8::Object>& client);
 
+    // Set a reference to a prepared statement
+    void set_prepared_statement(CassStatement* statement);
 private:
     u_int32_t id_;
 
@@ -33,7 +35,11 @@ private:
     // The actual implementation of the constructor
     static NAN_METHOD(New);
 
-    // Bind the query and parameters
+    // Parse the query and bind the given parameters (if any).
+    WRAPPED_METHOD_DECL(Parse);
+
+    // Bind the given parameters to the prepared statement. This only works if
+    // the query was obtained from a Prepared.
     WRAPPED_METHOD_DECL(Bind);
 
     // Execute the query, potentially retrieving additional pages.
@@ -52,6 +58,8 @@ private:
     };
     typedef std::vector<Column> ColumnInfo;
 
+    _NAN_METHOD_RETURN_TYPE bind(Local<Array>& params);
+
     static void on_result_ready(CassFuture* future, void* data);
     void result_ready(CassFuture* future);
 
@@ -60,6 +68,7 @@ private:
 
     CassSession* session_;
     CassStatement* statement_;
+    bool prepared_;
 
     bool fetching_;
     NanCallback* callback_;
