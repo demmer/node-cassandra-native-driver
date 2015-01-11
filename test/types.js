@@ -3,7 +3,6 @@ var Promise = require('bluebird');
 var _ = require('underscore');
 var expect = require('chai').expect;
 var client = new cassandra.Client();
-client.connect(function() {});
 
 Promise.promisifyAll(client);
 var tests = {
@@ -13,6 +12,8 @@ var tests = {
     double: [1.23, 4.56],
 }
 
+client.connectAsync('127.0.0.1')
+.then(function() {
 client.executeAsync('use kairosdb;')
 .then(function() {
     _.each(tests, function(testValues, testType) {
@@ -63,4 +64,5 @@ client.executeAsync('use kairosdb;')
             return client.executeAsync('drop table ' + table + ';');
         });
     });
+});
 });

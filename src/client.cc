@@ -10,12 +10,24 @@ Client::Client() {
     printf("In Client constructor %p\n", this);
     cluster_ = cass_cluster_new();
     session_ = cass_session_new();
+    async_ = new uv_async_t();
+    uv_async_init(uv_default_loop(), async_, Client::on_async_ready);
+    async_->data = this;
+}
+
+static void
+async_destroy(uv_handle_t* handle)
+{
+    uv_async_t* async = (uv_async_t*)handle;
+    delete async;
 }
 
 Client::~Client() {
     printf("In Client destructor %p\n", this);
     cass_session_free(session_);
     cass_cluster_free(cluster_);
+    delete callback_;
+    uv_close((uv_handle_t*) async_, async_destroy);
 }
 
 void Client::Init() {
@@ -63,25 +75,62 @@ NAN_METHOD(Client::New) {
 
 WRAPPED_METHOD(Connect) {
     NanScope();
+    if (args.Length() != 2) {
+        return NanThrowError("connect requires 2 arguments: address and callback");
+    }
 
-    // XXX/demmer:
-    // 1. make this async
-    // 2. parameterize contact points and other options
-    cass_cluster_set_contact_points(cluster_, "127.0.0.1");
+    String::AsciiValue address(args[0].As<String>());
+
+    cass_cluster_set_contact_points(cluster_, *address);
+    callback_ = new NanCallback(args[1].As<Function>());
 
     CassFuture* future = cass_session_connect(session_, cluster_);
-    cass_future_wait(future);
+    cass_future_set_callback(future, on_result_ready, this);
+    NanReturnUndefined();
+}
 
-    CassError rc = cass_future_error_code(future);
-    if (rc != CASS_OK) {
-        CassString message = cass_future_error_message(future);
-        std::string msg(message.data, message.length);
-        cass_future_free(future);
-        return NanThrowError(msg.c_str());
+void
+Client::on_result_ready(CassFuture* future, void* data)
+{
+    Client* self = (Client*) data;
+    self->on_connect(future);
+}
+
+void
+Client::on_connect(CassFuture* future)
+{
+    result_code_ = cass_future_error_code(future);
+    if (result_code_ != CASS_OK) {
+        CassString error = cass_future_error_message(future);
+        result_error_ = std::string(error.data, error.length);
     }
     cass_future_free(future);
 
-    NanReturnUndefined();
+    uv_async_send(async_);
+}
+
+void
+Client::on_async_ready(uv_async_t* handle, int status)
+{
+    Client* self = (Client*)handle->data;
+    self->async_ready();
+}
+
+void
+Client::async_ready() {
+    NanScope();
+    if (result_code_ != CASS_OK) {
+        Handle<Value> argv[] = {
+            NanError(result_error_.c_str())
+        };
+        callback_->Call(1, argv);
+        return;
+    }
+
+    Handle<Value> argv[] = {
+        NanNull(),
+    };
+    callback_->Call(1, argv);
 }
 
 WRAPPED_METHOD(NewQuery) {
