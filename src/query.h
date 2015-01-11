@@ -26,6 +26,9 @@ public:
 
     // Set a reference to a prepared statement
     void set_prepared_statement(CassStatement* statement);
+
+    // Get a pointer to the statement (to be used for batch queries)
+    CassStatement* statement() { return statement_; }
 private:
     u_int32_t id_;
 

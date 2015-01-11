@@ -80,11 +80,12 @@ Result::do_callback(NanCallback* callback)
         const CassRow* row = cass_iterator_get_row(iterator);
         Local<Object> element = NanNew<Object>();
         for (size_t i = 0; i < num_columns; ++i) {
-            Local<Value> value;
-            if (TypeMapper::column_value(&value, column_info_[i].type_,
-                                         row, i, &buffer_pool_))
+            Local<Value> result;
+            const CassValue* value = cass_row_get_column(row, i);
+            if (TypeMapper::v8_from_cassandra(&result, column_info_[i].type_,
+                                              value, &buffer_pool_))
             {
-                element->Set(column_info_[i].name_, value);
+                element->Set(column_info_[i].name_, result);
             }
             else
             {

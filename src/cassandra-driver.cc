@@ -3,6 +3,7 @@
 
 #include <cassandra.h>
 
+#include "batch.h"
 #include "client.h"
 #include "prepared-query.h"
 #include "query.h"
@@ -17,6 +18,7 @@ NAN_METHOD(CreateClient) {
 void InitAll(Handle<Object> exports) {
     NanScope();
 
+    Batch::Init();
     Client::Init();
     PreparedQuery::Init();
     Query::Init();

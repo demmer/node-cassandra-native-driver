@@ -1,5 +1,6 @@
 
 #include "client.h"
+#include "batch.h"
 #include "prepared-query.h"
 #include "query.h"
 
@@ -46,6 +47,7 @@ void Client::Init() {
     NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -159,6 +161,25 @@ WRAPPED_METHOD(Client, NewPreparedQuery) {
 
     Local<Object> self = Local<Object>::New(handle_);
     query->set_client(self);
+
+    NanReturnValue(val);
+}
+
+WRAPPED_METHOD(Client, NewBatch) {
+    NanScope();
+
+    if (args.Length() != 1) {
+        return NanThrowError("must specify batch type");
+    }
+
+    Local<String> type = args[0].As<String>();
+    Local<Value> val = Batch::NewInstance(type);
+    if (! val.IsEmpty()) {
+        Batch* batch = node::ObjectWrap::Unwrap<Batch>(val->ToObject());
+
+        Local<Object> self = Local<Object>::New(handle_);
+        batch->set_client(self);
+    }
 
     NanReturnValue(val);
 }
