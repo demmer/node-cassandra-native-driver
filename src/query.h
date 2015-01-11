@@ -3,7 +3,7 @@
 
 #include "node.h"
 #include "nan.h"
-#include "buffer-pool.h"
+#include "result.h"
 #include "wrapped-method.h"
 #include <vector>
 
@@ -45,23 +45,7 @@ private:
     // Execute the query, potentially retrieving additional pages.
     WRAPPED_METHOD_DECL(Execute);
 
-    // Encapsulation of column metadata that can be cached for each row in the
-    // results.
-    struct Column {
-        Column(CassString name, CassValueType type) {
-            NanAssignPersistent(name_, NanNew(name.data));
-            type_ = type;
-        };
-
-        v8::Persistent<v8::String> name_;
-        CassValueType type_;
-    };
-    typedef std::vector<Column> ColumnInfo;
-
     _NAN_METHOD_RETURN_TYPE bind(Local<Array>& params);
-
-    static void on_result_ready(CassFuture* future, void* data);
-    void result_ready(CassFuture* future);
 
     static void on_async_ready(uv_async_t* handle, int status);
     void async_ready();
@@ -69,18 +53,12 @@ private:
     CassSession* session_;
     CassStatement* statement_;
     bool prepared_;
-
     bool fetching_;
     NanCallback* callback_;
 
-    ColumnInfo column_info_;
-    const CassResult* result_;
-    CassError result_code_;
-    std::string result_error_;
+    Result result_;
 
     uv_async_t* async_;
-
-    BufferPool buffer_pool_;
 
     static v8::Persistent<v8::Function> constructor;
 };

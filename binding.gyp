@@ -62,6 +62,7 @@
         "src/cassandra-driver.cc",
         "src/client.cc",
         "src/prepared-query.cc",
+        "src/result.cc",
         "src/query.cc",
         "src/type-mapper.cc"
       ],

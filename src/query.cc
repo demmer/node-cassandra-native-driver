@@ -55,7 +55,6 @@ Query::Query()
 
     dprintf("Query::Query %u %u\n", id_, ACTIVE);
     fetching_ = false;
-    result_ = NULL;
     callback_ = NULL;
     statement_ = NULL;
     prepared_ = false;
@@ -63,6 +62,9 @@ Query::Query()
     async_ = new uv_async_t();
     uv_async_init(uv_default_loop(), async_, Query::on_async_ready);
     async_->data = this;
+
+    // XXX/demmer fix this up
+    result_.async_ = async_;
 }
 
 static void
@@ -77,20 +79,9 @@ Query::~Query()
     --ACTIVE;
     dprintf("Query::~Query id %u active %u\n", id_, ACTIVE);
 
-    if (result_) {
-        cass_result_free(result_);
-    }
     if (statement_) {
         cass_statement_free(statement_);
     }
-    if (callback_) {
-        delete callback_;
-    }
-
-    for (size_t i = 0; i < column_info_.size(); ++i) {
-        column_info_[i].name_.Dispose();
-    }
-    column_info_.empty();
 
     uv_handle_t* async_handle = (uv_handle_t*)async_;
     uv_close(async_handle, async_destroy);
@@ -109,7 +100,6 @@ Query::set_prepared_statement(CassStatement* statement)
     statement_ = statement;
     prepared_ = true;
 }
-
 
 WRAPPED_METHOD(Query, Parse)
 {
@@ -198,42 +188,19 @@ WRAPPED_METHOD(Query, Execute)
 
     cass_statement_set_paging_size(statement_, paging_size);
 
-
     callback_ = callback;
-    fetching_ = true;
 
     // If there's a result from the previous iteration, update the paging state
     // to fetch the next page and free it.
-    if (result_) {
-        cass_statement_set_paging_state(statement_, result_);
-        cass_result_free(result_);
+    if (result_.result()) {
+        cass_statement_set_paging_state(statement_, result_.result());
+        cass_result_free(result_.result());
     }
 
     CassFuture* future = cass_session_execute(session_, statement_);
-    cass_future_set_callback(future, on_result_ready, this);
+    cass_future_set_callback(future, Result::on_ready, &result_);
+
     NanReturnUndefined();
-}
-
-// Callback on the I/O thread when a result is ready from cassandra
-void
-Query::on_result_ready(CassFuture* future, void* data)
-{
-    Query* self = (Query*)data;
-    self->result_ready(future);
-}
-
-void
-Query::result_ready(CassFuture* future)
-{
-    result_ = cass_future_get_result(future);
-    result_code_ = cass_future_error_code(future);
-    if (result_code_ != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        result_error_ = std::string(error.data, error.length);
-    }
-    cass_future_free(future);
-
-    uv_async_send(async_);
 }
 
 // Callback on the main v8 thread when results have been posted
@@ -250,68 +217,8 @@ Query::async_ready()
 {
     NanScope();
 
-    if (result_code_ != CASS_OK) {
-        Handle<Value> argv[] = {
-            NanError(result_error_.c_str())
-        };
-        callback_->Call(1, argv);
-        return;
-    }
-
-    Local<Array> res = NanNew<Array>();
     fetching_ = false;
-
-    cass_bool_t more = cass_result_has_more_pages(result_);
-    res->Set(NanNew("more"), more ? NanTrue() : NanFalse() );
-
-    Local<Array> data = NanNew<Array>();
-    res->Set(NanNew("rows"), data);
-    CassIterator* iterator = cass_iterator_from_result(result_);
-
-    // Stash the column info for the first batch of results.
-    size_t num_columns = cass_result_column_count(result_);
-    if (column_info_.size() == 0) {
-        for (size_t i = 0; i < num_columns; ++i) {
-            CassString name = cass_result_column_name(result_, i);
-            CassValueType type = cass_result_column_type(result_, i);
-            column_info_.push_back(Column(name, type));
-        }
-    }
-
-    size_t n = 0;
-    while (cass_iterator_next(iterator)) {
-        const CassRow* row = cass_iterator_get_row(iterator);
-        Local<Object> element = NanNew<Object>();
-        for (size_t i = 0; i < num_columns; ++i) {
-            Local<Value> value;
-            const CassValue* rowValue = cass_row_get_column(row, i);
-            if (TypeMapper::v8_from_cassandra(&value, column_info_[i].type_,
-                                         rowValue, &buffer_pool_))
-            {
-                element->Set(column_info_[i].name_, value);
-            }
-            else
-            {
-                // XXX temporary until all the types are implemented in
-                // TypeMapper.
-                Handle<Value> argv[] = {
-                    NanError("unable to obtain column value")
-                };
-                callback_->Call(1, argv);
-                return;
-            }
-        }
-
-        data->Set(n, element);
-        n++;
-    }
-    cass_iterator_free(iterator);
-
-    Handle<Value> argv[] = {
-        NanNull(),
-        res
-    };
-    callback_->Call(2, argv);
+    result_.do_callback(callback_);
 
     Unref();
 }
