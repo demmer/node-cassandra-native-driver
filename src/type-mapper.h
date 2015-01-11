@@ -19,8 +19,8 @@ public:
                                   v8::Local<v8::Value>& value);
 
     // Get a Javascript result value for the i'th column from the specified row.
-    static bool column_value(v8::Local<v8::Value>* result, CassValueType type,
-                             const CassRow* row, size_t i, BufferPool* pool);
+    static bool v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
+                             const CassValue* value, BufferPool* pool);
 };
 
 #endif

@@ -163,7 +163,7 @@ void
 Query::async_ready()
 {
     NanScope();
-    
+
     if (result_code_ != CASS_OK) {
         Handle<Value> argv[] = {
             NanError(result_error_.c_str())
@@ -200,8 +200,9 @@ Query::async_ready()
         Local<Object> element = NanNew<Object>();
         for (size_t i = 0; i < num_columns; ++i) {
             Local<Value> value;
-            if (TypeMapper::column_value(&value, column_info_[i].type_,
-                                         row, i, &buffer_pool_))
+            const CassValue* rowValue = cass_row_get_column(row, i);
+            if (TypeMapper::v8_from_cassandra(&value, column_info_[i].type_,
+                                         rowValue, &buffer_pool_))
             {
                 element->Set(column_info_[i].name_, value);
             }
