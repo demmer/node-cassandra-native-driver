@@ -54,11 +54,13 @@ var TestClient = Base.extend({
 
     // Create a table with the given name in the current keyspace. Fields is an
     // object mapping the field name to the type.
-    createTable: function(name, fields, key) {
+    createTable: function(name, fields, key, opts) {
+        opts = opts || "";
         var columns = _.map(fields, function(type, column) {
             return column + " " + type;
         });
-        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s));", name, columns, key));
+        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s)) %s;", 
+            name, columns, key, opts));
     },
 
     // Insert n rows of data into the given table using the supplied generator
