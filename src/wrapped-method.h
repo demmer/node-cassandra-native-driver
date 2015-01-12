@@ -7,11 +7,11 @@
     static NAN_METHOD(WRAPPED_METHOD_NAME(_name)); \
     NAN_METHOD(_name);
 
-#define WRAPPED_METHOD(_name) \
-    NAN_METHOD(Client::WRAPPED_METHOD_NAME(_name)) { \
-        Client* obj = ObjectWrap::Unwrap<Client>(args.Holder()); \
+#define WRAPPED_METHOD(_cls, _name) \
+    NAN_METHOD(_cls::WRAPPED_METHOD_NAME(_name)) { \
+        _cls* obj = ObjectWrap::Unwrap<_cls>(args.Holder()); \
         return obj->_name(args); \
     } \
-    NAN_METHOD(Client::_name)
+    NAN_METHOD(_cls::_name)
 
 #endif

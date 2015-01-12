@@ -1,5 +1,6 @@
 
 #include "client.h"
+#include "prepared-query.h"
 #include "query.h"
 
 using namespace v8;
@@ -9,7 +10,7 @@ Persistent<Function> Client::constructor;
 Client::Client() {
     printf("In Client constructor %p\n", this);
     cluster_ = cass_cluster_new();
-    session_ = cass_session_new();
+    session_ = NULL;
     async_ = new uv_async_t();
     uv_async_init(uv_default_loop(), async_, Client::on_async_ready);
     async_->data = this;
@@ -24,7 +25,10 @@ async_destroy(uv_handle_t* handle)
 
 Client::~Client() {
     printf("In Client destructor %p\n", this);
-    cass_session_free(session_);
+    if (session_) {
+        cass_session_free(session_);
+        session_ = NULL;
+    }
     cass_cluster_free(cluster_);
     delete callback_;
     uv_close((uv_handle_t*) async_, async_destroy);
@@ -40,7 +44,8 @@ void Client::Init() {
 
     // Prototype
     NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "query", WRAPPED_METHOD_NAME(NewQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -73,7 +78,7 @@ NAN_METHOD(Client::New) {
     }
 }
 
-WRAPPED_METHOD(Connect) {
+WRAPPED_METHOD(Client, Connect) {
     NanScope();
     if (args.Length() != 2) {
         return NanThrowError("connect requires 2 arguments: address and callback");
@@ -84,6 +89,7 @@ WRAPPED_METHOD(Connect) {
     cass_cluster_set_contact_points(cluster_, *address);
     callback_ = new NanCallback(args[1].As<Function>());
 
+    session_ = cass_session_new();
     CassFuture* future = cass_session_connect(session_, cluster_);
     cass_future_set_callback(future, on_result_ready, this);
     NanReturnUndefined();
@@ -133,30 +139,26 @@ Client::async_ready() {
     callback_->Call(1, argv);
 }
 
-WRAPPED_METHOD(NewQuery) {
+WRAPPED_METHOD(Client, NewQuery) {
     NanScope();
+    Local<Value> val = Query::NewInstance();
 
-    if (args.Length() != 4) {
-        return NanThrowError("query requires 4 arguments: query, params, options, callback");
-    }
+    Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
 
-    Local<String> query_str = args[0].As<String>();
-    Local<Array> params = args[1].As<Array>();
-    Local<Object> options = args[2].As<Object>();
-    NanCallback* callback = new NanCallback(args[3].As<Function>());
+    Local<Object> self = Local<Object>::New(handle_);
+    query->set_client(self);
 
-    Query* query;
-    Local<Value> query_obj = options->Get(NanNew("query"));
-    if (query_obj->IsUndefined()) {
-        query_obj = Query::NewInstance();
-        query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
-        if (! query->bind(handle_, query_str, params)) {
-            return NanThrowError("unable to bind statement params");
-        }
-    } else {
-        query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
-    }
-    query->fetch(session_, options, callback);
+    NanReturnValue(val);
+}
 
-    NanReturnUndefined();
+WRAPPED_METHOD(Client, NewPreparedQuery) {
+    NanScope();
+    Local<Value> val = PreparedQuery::NewInstance();
+
+    PreparedQuery* query = node::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
+
+    Local<Object> self = Local<Object>::New(handle_);
+    query->set_client(self);
+
+    NanReturnValue(val);
 }

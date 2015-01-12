@@ -12,6 +12,7 @@ public:
     static void Init();
     static v8::Local<v8::Object> NewInstance(v8::Local<v8::Value> arg);
 
+    CassSession* get_session() { return session_; }
 private:
     CassCluster* cluster_;
     CassSession* session_;
@@ -33,6 +34,7 @@ private:
 
     WRAPPED_METHOD_DECL(Connect);
     WRAPPED_METHOD_DECL(NewQuery);
+    WRAPPED_METHOD_DECL(NewPreparedQuery);
 
     static v8::Persistent<v8::Function> constructor;
 };
