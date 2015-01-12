@@ -15,6 +15,16 @@ public:
 private:
     CassCluster* cluster_;
     CassSession* session_;
+    NanCallback* callback_;
+    CassError result_code_;
+    std::string result_error_;
+    uv_async_t* async_;
+
+    static void on_result_ready(CassFuture* future, void* data);
+    void on_connect(CassFuture* future);
+
+    static void on_async_ready(uv_async_t* handle, int status);
+    void async_ready();
 
     explicit Client();
     ~Client();
