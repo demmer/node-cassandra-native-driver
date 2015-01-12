@@ -15,8 +15,8 @@ var TestClient = Base.extend({
         this.keyspaces = [];
     },
 
-    connect: function (options) {
-        return this.client.connectAsync();
+    connect: function (address) {
+        return this.client.connectAsync(address);
     },
 
     execute: function() {
