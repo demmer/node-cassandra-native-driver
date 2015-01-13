@@ -20,43 +20,26 @@ Result::~Result()
     column_info_.empty();
 }
 
-// Callback on the I/O thread when a result is ready from cassandra
 void
-Result::on_ready(CassFuture* future, void* data)
-{
-    Result* self = (Result*)data;
-    self->ready(future);
-}
-
-void
-Result::ready(CassFuture* future)
-{
-    result_ = cass_future_get_result(future);
-    result_code_ = cass_future_error_code(future);
-    if (result_code_ != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        result_error_ = std::string(error.data, error.length);
-    }
-    cass_future_free(future);
-
-    uv_async_send(async_);
-}
-
-void
-Result::do_callback(NanCallback* callback)
+Result::do_callback(CassFuture* future, NanCallback* callback)
 {
     NanScope();
 
-    if (result_code_ != CASS_OK) {
+    CassError code = cass_future_error_code(future);
+    if (code != CASS_OK) {
+        CassString error = cass_future_error_message(future);
+        std::string error_str = std::string(error.data, error.length);
+
         Handle<Value> argv[] = {
-            NanError(result_error_.c_str())
+            NanError(error_str.c_str())
         };
         callback->Call(1, argv);
         return;
     }
 
+    result_ = cass_future_get_result(future);
+
     Local<Array> res = NanNew<Array>();
-    fetching_ = false;
 
     cass_bool_t more = cass_result_has_more_pages(result_);
     res->Set(NanNew("more"), more ? NanTrue() : NanFalse() );

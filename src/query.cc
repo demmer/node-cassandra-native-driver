@@ -55,23 +55,8 @@ Query::Query()
 
     dprintf("Query::Query %u %u\n", id_, ACTIVE);
     fetching_ = false;
-    callback_ = NULL;
     statement_ = NULL;
     prepared_ = false;
-
-    async_ = new uv_async_t();
-    uv_async_init(uv_default_loop(), async_, Query::on_async_ready);
-    async_->data = this;
-
-    // XXX/demmer fix this up
-    result_.async_ = async_;
-}
-
-static void
-async_destroy(uv_handle_t* handle)
-{
-    uv_async_t* async = (uv_async_t*)handle;
-    delete async;
 }
 
 Query::~Query()
@@ -82,16 +67,16 @@ Query::~Query()
     if (statement_) {
         cass_statement_free(statement_);
     }
-
-    uv_handle_t* async_handle = (uv_handle_t*)async_;
-    uv_close(async_handle, async_destroy);
 }
 
 void
 Query::set_client(const Local<Object>& client)
 {
     handle_->Set(NanNew("client"), client);
-    session_ = node::ObjectWrap::Unwrap<Client>(client)->get_session();
+
+    Client* c = node::ObjectWrap::Unwrap<Client>(client);
+    session_ = c->get_session();
+    async_ = c->get_async();
 }
 
 void
@@ -188,8 +173,6 @@ WRAPPED_METHOD(Query, Execute)
 
     cass_statement_set_paging_size(statement_, paging_size);
 
-    callback_ = callback;
-
     // If there's a result from the previous iteration, update the paging state
     // to fetch the next page and free it.
     if (result_.result()) {
@@ -198,27 +181,30 @@ WRAPPED_METHOD(Query, Execute)
     }
 
     CassFuture* future = cass_session_execute(session_, statement_);
-    cass_future_set_callback(future, Result::on_ready, &result_);
+    async_->schedule(on_result_ready, future, this, callback);
 
     NanReturnUndefined();
 }
 
 // Callback on the main v8 thread when results have been posted
 void
-Query::on_async_ready(uv_async_t* handle, int status)
+Query::on_result_ready(CassFuture* future, void* client, void* data)
 {
-    // XXX/demmer status?
-    Query* self = (Query*)handle->data;
-    self->async_ready();
+    Query* self = (Query*)client;
+    NanCallback* callback = (NanCallback*) data;
+    self->result_ready(future, callback);
 }
 
 void
-Query::async_ready()
+Query::result_ready(CassFuture* future, NanCallback* callback)
 {
     NanScope();
 
     fetching_ = false;
-    result_.do_callback(callback_);
+    result_.do_callback(future, callback);
+
+    cass_future_free(future);
+    delete callback;
 
     Unref();
 }

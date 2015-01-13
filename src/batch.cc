@@ -64,39 +64,23 @@ NAN_METHOD(Batch::New) {
 Batch::Batch(CassBatchType type)
 {
     dprintf("Batch::Batch %u %u\n", id_, ACTIVE);
-
     fetching_ = false;
-    callback_ = NULL;
-
     batch_ = cass_batch_new(type);
-
-    async_ = new uv_async_t();
-    uv_async_init(uv_default_loop(), async_, Batch::on_async_ready);
-    async_->data = this;
-
-    // XXX/demmer fix this up
-    result_.async_ = async_;
-}
-
-static void
-async_destroy(uv_handle_t* handle)
-{
-    uv_async_t* async = (uv_async_t*)handle;
-    delete async;
 }
 
 Batch::~Batch()
 {
     cass_batch_free(batch_);
-    uv_handle_t* async_handle = (uv_handle_t*)async_;
-    uv_close(async_handle, async_destroy);
 }
 
 void
 Batch::set_client(const Local<Object>& client)
 {
     handle_->Set(NanNew("client"), client);
-    session_ = node::ObjectWrap::Unwrap<Client>(client)->get_session();
+
+    Client* c = node::ObjectWrap::Unwrap<Client>(client);
+    session_ = c->get_session();
+    async_ = c->get_async();
 }
 
 WRAPPED_METHOD(Batch, AddQuery)
@@ -135,37 +119,38 @@ WRAPPED_METHOD(Batch, Execute)
     Ref();
 
     Local<Object> options = args[0].As<Object>();
-    (void)options;
+    (void)options; // XXX what options make sense?
 
     NanCallback* callback = new NanCallback(args[1].As<Function>());
-    callback_ = callback;
 
     if (result_.result()) {
         cass_result_free(result_.result());
     }
 
     CassFuture* future = cass_session_execute_batch(session_, batch_);
-    cass_future_set_callback(future, Result::on_ready, &result_);
+    async_->schedule(on_result_ready, future, this, callback);
 
     NanReturnUndefined();
 }
 
-// Callback on the main v8 thread when results have been posted
 void
-Batch::on_async_ready(uv_async_t* handle, int status)
+Batch::on_result_ready(CassFuture* future, void* client, void* data)
 {
-    // XXX/demmer status?
-    Batch* self = (Batch*)handle->data;
-    self->async_ready();
+    Batch* self = (Batch*)client;
+    NanCallback* callback = (NanCallback*) data;
+    self->result_ready(future, callback);
 }
 
 void
-Batch::async_ready()
+Batch::result_ready(CassFuture* future, NanCallback* callback)
 {
     NanScope();
 
     fetching_ = false;
-    result_.do_callback(callback_);
+    result_.do_callback(future, callback);
+
+    cass_future_free(future);
+    delete callback;
 
     Unref();
 }

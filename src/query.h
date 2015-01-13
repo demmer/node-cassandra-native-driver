@@ -9,6 +9,7 @@
 
 using namespace v8;
 
+class AsyncFuture;
 class Client;
 
 // Wrapper for an in-progress query to the back end
@@ -50,18 +51,17 @@ private:
 
     _NAN_METHOD_RETURN_TYPE bind(Local<Array>& params);
 
-    static void on_async_ready(uv_async_t* handle, int status);
-    void async_ready();
+    static void on_result_ready(CassFuture* future, void* client, void* data);
+    void result_ready(CassFuture* future, NanCallback* callback);
 
     CassSession* session_;
     CassStatement* statement_;
+
     bool prepared_;
     bool fetching_;
-    NanCallback* callback_;
 
+    AsyncFuture* async_;
     Result result_;
-
-    uv_async_t* async_;
 
     static v8::Persistent<v8::Function> constructor;
 };
