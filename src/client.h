@@ -35,6 +35,7 @@ private:
     WRAPPED_METHOD_DECL(Connect);
     WRAPPED_METHOD_DECL(NewQuery);
     WRAPPED_METHOD_DECL(NewPreparedQuery);
+    WRAPPED_METHOD_DECL(NewBatch);
 
     static v8::Persistent<v8::Function> constructor;
 };

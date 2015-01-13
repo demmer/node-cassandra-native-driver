@@ -58,10 +58,12 @@
         "cpp-driver/src/types.cpp",
         "cpp-driver/src/uuids.cpp",
         "cpp-driver/src/value.cpp",
+        "src/batch.cc",
         "src/buffer-pool.cc",
         "src/cassandra-driver.cc",
         "src/client.cc",
         "src/prepared-query.cc",
+        "src/result.cc",
         "src/query.cc",
         "src/type-mapper.cc"
       ],

@@ -54,11 +54,13 @@ var TestClient = Base.extend({
 
     // Create a table with the given name in the current keyspace. Fields is an
     // object mapping the field name to the type.
-    createTable: function(name, fields, key) {
+    createTable: function(name, fields, key, opts) {
+        opts = opts || "";
         var columns = _.map(fields, function(type, column) {
             return column + " " + type;
         });
-        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s));", name, columns, key));
+        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s)) %s;", 
+            name, columns, key, opts));
     },
 
     // Insert n rows of data into the given table using the supplied generator
@@ -106,6 +108,55 @@ var TestClient = Base.extend({
         return prepare()
         .then(function() {
             return Promise.map(data, insert, {concurrency: concurrent});
+        });
+    },
+
+    insertRowsPreparedBatch: function(table, data, batch_size, concurrent) {
+        var self = this;
+        var prepared;
+
+        var count = data.length;
+        var keys = _.keys(data[0]);
+        var cols = keys.join(',');
+        var vars = _.map(keys, function() { return '?'; }).join(',');
+
+        function prepare() {
+            var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
+            return self.client.prepareAsync(cql)
+            .then(function(p) {
+                console.log('got prepared', p);
+                prepared = p;
+            });
+        }
+
+        function _insert_batch(x, batch_i, n, cb) {
+            var batch = self.client.new_batch("unlogged");
+
+            _.times(batch_size, function(i) {
+                var d = data[(batch_i * batch_size) + i];
+
+                // The last batch might not be full
+                if (d === undefined) {
+                    return;
+                }
+
+                var vals = _.map(keys, function(k) { return d[k]; });
+                var query = prepared.query();
+                query.bind(vals);
+
+                batch.add(query);
+            });
+            batch.execute({}, cb);
+        }
+
+        // Create an array with a dummy entry for each batch just to be able to
+        // use Promise.map
+        var batches = _.times(Math.ceil(count / batch_size), _.noop);
+
+        var insert_batch = Promise.promisify(_insert_batch);
+        return prepare()
+        .then(function() {
+            return Promise.map(batches, insert_batch, {concurrency: concurrent});
         });
     }
 });
