@@ -3,6 +3,12 @@ node-cassandra-native-driver
 
 Node.js addon to wrap the C++ native cassandra driver.
 
+Installation
+============
+
+    npm install -g node-gyp
+    npm install cassandra-native-driver
+
 License
 =======
 
