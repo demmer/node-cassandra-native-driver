@@ -3,6 +3,7 @@ var cassandra = require('../index');
 var Promise = require('bluebird');
 var util = require('util');
 var _ = require('underscore');
+var request = Promise.promisifyAll(require('request'));
 
 // Test wrapper around the cassandra client.
 //
@@ -59,7 +60,7 @@ var TestClient = Base.extend({
         var columns = _.map(fields, function(type, column) {
             return column + " " + type;
         });
-        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s)) %s;", 
+        return this.execute(util.format("CREATE TABLE %s (%s, PRIMARY KEY(%s)) %s;",
             name, columns, key, opts));
     },
 
@@ -111,7 +112,7 @@ var TestClient = Base.extend({
         });
     },
 
-    insertRowsPreparedBatch: function(table, data, batch_size, concurrent) {
+    insertRowsPreparedBatch: function(table, data, batch_size, concurrent, with_metadata) {
         var self = this;
         var prepared;
 
@@ -149,6 +150,43 @@ var TestClient = Base.extend({
             batch.execute({}, cb);
         }
 
+        function insert_metadata() {
+            var metadata = data.map(function(pt) {
+                return _.omit(pt, 'value', 'time');
+            });
+
+            var requestBody = metadata.map(function(datum) {
+                var updateCmd = JSON.stringify({
+                    update: {
+                        _index: 'metadata',
+                        _type: datum.name,
+                        _id: 1
+                    }
+                });
+                var doc = {};
+                _.each(datum, function(value, key) {
+                    doc[key + ':' + value] = 1;
+                });
+                var requestLine = JSON.stringify({
+                    doc: doc,
+                    doc_as_upsert: true,
+                    detect_noop: true
+                });
+                return updateCmd + '\n' + requestLine + '\n';
+            });
+            var start = new Date();
+            console.log('sending points over to ES');
+            return request.postAsync({
+                url: 'http://localhost:9200/_bulk',
+                body: requestBody
+            })
+            .spread(function(res, body) {
+                var end = new Date();
+                console.log('status code for meta-point insert', res.statusCode);
+                console.log('done inserting ', data.length, ' meta-points, took', (end - start) / 1000, 'seconds');
+            });
+        }
+
         // Create an array with a dummy entry for each batch just to be able to
         // use Promise.map
         var batches = _.times(Math.ceil(count / batch_size), _.noop);
@@ -156,7 +194,11 @@ var TestClient = Base.extend({
         var insert_batch = Promise.promisify(_insert_batch);
         return prepare()
         .then(function() {
-            return Promise.map(batches, insert_batch, {concurrency: concurrent});
+            var promises = [Promise.map(batches, insert_batch, {concurrency: concurrent}).then(function() { console.log('done inserting real points'); })];
+            if (with_metadata) {
+                promises.push(insert_metadata());
+            }
+            return Promise.all(promises);
         });
     }
 });
