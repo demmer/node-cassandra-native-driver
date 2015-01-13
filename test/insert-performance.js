@@ -31,24 +31,53 @@ else {
     batch = false;
 }
 
+function tonightAtMidnight() {
+    var date = new Date();
+    date.setUTCHours(0);
+    date.setUTCMinutes(0);
+    date.setUTCSeconds(0);
+    date.setUTCMilliseconds(0);
+    return date;
+}
+
+var rowStart = tonightAtMidnight().getTime();
+
 var fields = {
-    "row": "varchar",
-    "col": "int",
-    "val": "int"
+    "name": "varchar",
+    "tag1": "varchar",
+    "tag2": "varchar",
+    "tag3": "varchar",
+    "tag4": "varchar",
+    "value": "double",
+    "time": "int"
 };
 
-var key = "row, col";
+var key = _.keys(fields).filter(function(k) {
+    return k !== 'value';
+}).join(', ');
+
+var tagValues = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
+
+function randomTag() {
+    var index = Math.floor(Math.random() * tagValues.length);
+    return string(tagValues[index]);
+}
 
 function string(x) {
     return '\'' + x.toString() + '\'';
 }
+
 var col = 0;
+
 function generate() {
-    var row = col % 10;
     var ret = {
-        row: string(row),
-        col: col,
-        val: Math.floor(Math.random() * 100)
+        name: randomTag(),
+        tag1: randomTag(),
+        tag2: randomTag(),
+        tag3: randomTag(),
+        tag4: randomTag(),
+        value: Math.random(),
+        time: col,
     };
     col++;
     return ret;
@@ -75,7 +104,7 @@ client.connect('127.0.0.1')
 .then(function() {
     start = new Date();
     if (batch) {
-        return client.insertRowsPreparedBatch(table, data, batch, concurrent);
+        return client.insertRowsPreparedBatch(table, data, batch, concurrent, true);
     } else if (prepared) {
         return client.insertRowsPrepared(table, data, concurrent);
     } else {
