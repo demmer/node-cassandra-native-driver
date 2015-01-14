@@ -174,8 +174,7 @@ WRAPPED_METHOD(PreparedQuery, GetQuery)
 
     query->set_client(handle_->Get(NanNew("client")).As<Object>());
 
-    CassStatement* statement = cass_prepared_bind(prepared_);
-    query->set_prepared_statement(statement);
+    query->set_prepared_statement(prepare_statement());
 
     NanReturnValue(val);
 }

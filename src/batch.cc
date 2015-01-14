@@ -2,6 +2,7 @@
 
 #include "batch.h"
 #include "client.h"
+#include "prepared-query.h"
 #include "query.h"
 #include "type-mapper.h"
 
@@ -19,6 +20,7 @@ void Batch::Init() {
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     NODE_SET_PROTOTYPE_METHOD(tpl, "add", WRAPPED_METHOD_NAME(AddQuery));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "add_prepared", WRAPPED_METHOD_NAME(AddPrepared));
     NODE_SET_PROTOTYPE_METHOD(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
@@ -93,6 +95,32 @@ WRAPPED_METHOD(Batch, AddQuery)
     Query* query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
 
     cass_batch_add_statement(batch_, query->statement());
+
+    NanReturnUndefined();
+}
+
+WRAPPED_METHOD(Batch, AddPrepared)
+{
+    if (args.Length() != 2) {
+        return NanThrowError("add_prepared requires prepared and vals");
+    }
+
+    Local<Object> prepared_obj = args[0].As<Object>();
+    PreparedQuery* prepared = node::ObjectWrap::Unwrap<PreparedQuery>(prepared_obj->ToObject());
+    Local<Array> params = args[1].As<Array>();
+
+    CassStatement* statement = prepared->prepare_statement();
+
+    for (u_int32_t i = 0; i < params->Length(); ++i) {
+        const Local<Value>& arg = params->Get(i);
+        if (! TypeMapper::bind_statement_param(statement, i, arg)) {
+            char err[1024];
+            sprintf(err, "error binding statement argument %d", i);
+            return NanThrowError(err);
+        }
+    }
+
+    cass_batch_add_statement(batch_, statement);
 
     NanReturnUndefined();
 }

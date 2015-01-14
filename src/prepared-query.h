@@ -24,6 +24,12 @@ public:
     // to the session.
     void set_client(v8::Local<v8::Object>& client);
 
+    // Return a new cassandra prepared statement
+    CassStatement* prepare_statement()
+    {
+        return cass_prepared_bind(prepared_);
+    }
+
 private:
     PreparedQuery();
     ~PreparedQuery();

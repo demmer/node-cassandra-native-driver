@@ -32,10 +32,13 @@ private:
     // The actual implementation of the constructor
     static NAN_METHOD(New);
 
-    // Add a Query reference to the batch
+    // Add a bound query to the batch
     WRAPPED_METHOD_DECL(AddQuery);
 
-    // Execute the batch, potentially retrieving additional pages.
+    // Add a prepared query to the batch
+    WRAPPED_METHOD_DECL(AddPrepared);
+
+    // Execute the batch
     WRAPPED_METHOD_DECL(Execute);
 
     static void on_result_ready(CassFuture* future, void* client, void* data);

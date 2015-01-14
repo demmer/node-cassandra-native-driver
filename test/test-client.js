@@ -141,10 +141,7 @@ var TestClient = Base.extend({
                 }
 
                 var vals = _.map(keys, function(k) { return d[k]; });
-                var query = prepared.query();
-                query.bind(vals);
-
-                batch.add(query);
+                batch.add_prepared(prepared, vals);
             });
             batch.execute({}, cb);
         }
