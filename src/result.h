@@ -14,14 +14,9 @@ public:
     Result();
     ~Result();
 
-    // XXX/demmer fix this
-    uv_async_t* async_;
-
     const CassResult* result() { return result_; }
 
-    void do_callback(NanCallback* callback);
-
-    static void on_ready(CassFuture* future, void* data);
+    void do_callback(CassFuture* future, NanCallback* callback);
 private:
     // Encapsulation of column metadata that can be cached for each row in the
     // results.
@@ -36,28 +31,10 @@ private:
     };
     typedef std::vector<Column> ColumnInfo;
 
-    _NAN_METHOD_RETURN_TYPE bind(Local<Array>& params);
-
-    void ready(CassFuture* future);
-
-    static void on_async_ready(uv_async_t* handle, int status);
-    void async_ready();
-
-    CassSession* session_;
-    CassStatement* statement_;
-    bool prepared_;
-
-    bool fetching_;
-    NanCallback* callback_;
-
     ColumnInfo column_info_;
     const CassResult* result_;
-    CassError result_code_;
-    std::string result_error_;
 
     BufferPool buffer_pool_;
-
-    static v8::Persistent<v8::Function> constructor;
 };
 
 #endif

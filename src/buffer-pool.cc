@@ -2,19 +2,24 @@
 
 using namespace v8;
 
+v8::Persistent<v8::Function> BufferPool::buffer_constructor_;
+
 BufferPool::BufferPool(const size_t page_size)
     : page_size_(page_size), buffer_(NULL)
 {
-    // Grab a handle on the buffer constructor
-    Local<Object> global = Context::GetCurrent()->Global();
-    Local<Value> val = global->Get(String::New("Buffer"));
-    assert(!val.IsEmpty() && "type not found: Buffer");
-    assert(val->IsFunction() && "not a constructor: Buffer");
-    buffer_constructor_ = Persistent<Function>::New(val.As<Function>());
 }
 
 Local<Object>
 BufferPool::allocate(const unsigned char* data, size_t size) {
+    if (buffer_constructor_.IsEmpty()) {
+        // Grab a handle on the buffer constructor
+        Local<Object> global = Context::GetCurrent()->Global();
+        Local<Value> val = global->Get(String::New("Buffer"));
+        assert(!val.IsEmpty() && "type not found: Buffer");
+        assert(val->IsFunction() && "not a constructor: Buffer");
+        buffer_constructor_ = Persistent<Function>::New(val.As<Function>());
+    }
+
     if (buffer_ == NULL || (buf_offset_ + size) > page_size_) {
         printf("allocating new pagebuf\n");
         buffer_ = node::Buffer::New(std::max(page_size_, size));

@@ -32,12 +32,12 @@ TypeMapper::infer_type(const Local<Value>& value)
 }
 
 bool
-TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Value>& value)
+TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, const Local<Value>& value)
 {
     CassValueType type = infer_type(value);
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
-        Local<Object> obj = value.As<Object>();
+        Local<Object> obj = value->ToObject();
         CassBytes data;
         data.data = (cass_byte_t*) node::Buffer::Data(obj);
         data.size = node::Buffer::Length(obj);
@@ -45,12 +45,13 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         return true;
     }
     case CASS_VALUE_TYPE_DOUBLE: {
-        cass_double_t doubleValue = value.As<Number>()->NumberValue();
+        cass_double_t doubleValue = value->ToNumber()->NumberValue();
         cass_statement_bind_double(statement, i, doubleValue);
         return true;
     }
     case CASS_VALUE_TYPE_LIST: {
-        Local<Array> array = value.As<Array>();
+        Local<Value> val = value;
+        Local<Array> array = val.As<Array>();
         size_t length = array->Length();
         CassCollection* list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array->Length());
         for (size_t i = 0; i < length; ++i) {
@@ -62,13 +63,13 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::AsciiValue ascii_str(value.As<String>());
+        String::AsciiValue ascii_str(value->ToString());
         CassString str = cass_string_init(*ascii_str);
         cass_statement_bind_string(statement, i, str);
         return true;
     }
     case CASS_VALUE_TYPE_INT: {
-        cass_int32_t intValue = value.As<Number>()->Int32Value();
+        cass_int32_t intValue = value->ToNumber()->Int32Value();
         cass_statement_bind_int32(statement, i, intValue);
         return true;
     }
@@ -78,7 +79,7 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
         return true;
     }
     case CASS_VALUE_TYPE_MAP: {
-        Local<Object> obj = value.As<Object>();
+        Local<Object> obj = value->ToObject();
         Local<Array> keys = obj->GetOwnPropertyNames();
         CassCollection* cassObj = cass_collection_new(CASS_COLLECTION_TYPE_MAP, keys->Length());
         for (size_t i = 0; i < keys->Length(); i++) {
@@ -112,12 +113,12 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, Local<Va
 
 // Append the Javascript value to the given collection
 bool
-TypeMapper::append_collection(CassCollection* collection, Local<Value>& value)
+TypeMapper::append_collection(CassCollection* collection, const Local<Value>& value)
 {
     CassValueType type = infer_type(value);
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
-        Local<Object> obj = value.As<Object>();
+        Local<Object> obj = value->ToObject();
         CassBytes data;
         data.data = (cass_byte_t*) node::Buffer::Data(obj);
         data.size = node::Buffer::Length(obj);
@@ -125,22 +126,22 @@ TypeMapper::append_collection(CassCollection* collection, Local<Value>& value)
         return true;
     }
     case CASS_VALUE_TYPE_INT: {
-        cass_int32_t intValue = value.As<Number>()->Int32Value();
+        cass_int32_t intValue = value->ToNumber()->Int32Value();
         cass_collection_append_int32(collection, intValue);
         return true;
     }
     case CASS_VALUE_TYPE_DOUBLE: {
-        cass_double_t doubleValue = value.As<Number>()->NumberValue();
+        cass_double_t doubleValue = value->ToNumber()->NumberValue();
         cass_collection_append_double(collection, doubleValue);
         return true;
     }
     case CASS_VALUE_TYPE_BOOLEAN: {
-        cass_bool_t booleanValue = (value.As<BooleanObject>()->BooleanValue() ? cass_true : cass_false);
+        cass_bool_t booleanValue = (value->BooleanValue() ? cass_true : cass_false);
         cass_collection_append_bool(collection, booleanValue);
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::AsciiValue ascii_str(value.As<String>());
+        String::AsciiValue ascii_str(value->ToString());
         CassString str = cass_string_init(*ascii_str);
         cass_collection_append_string(collection, str);
         return true;

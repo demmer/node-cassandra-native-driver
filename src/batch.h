@@ -9,6 +9,7 @@
 
 using namespace v8;
 
+class AsyncFuture;
 class Client;
 
 // Wrapper for a batched query
@@ -31,24 +32,25 @@ private:
     // The actual implementation of the constructor
     static NAN_METHOD(New);
 
-    // Add a Query reference to the batch
+    // Add a bound query to the batch
     WRAPPED_METHOD_DECL(AddQuery);
 
-    // Execute the batch, potentially retrieving additional pages.
+    // Add a prepared query to the batch
+    WRAPPED_METHOD_DECL(AddPrepared);
+
+    // Execute the batch
     WRAPPED_METHOD_DECL(Execute);
 
-    static void on_async_ready(uv_async_t* handle, int status);
-    void async_ready();
+    static void on_result_ready(CassFuture* future, void* client, void* data);
+    void result_ready(CassFuture* future, NanCallback* callback);
 
     CassSession* session_;
     CassBatch* batch_;
 
     bool fetching_;
-    NanCallback* callback_;
 
+    AsyncFuture* async_;
     Result result_;
-
-    uv_async_t* async_;
 
     static v8::Persistent<v8::Function> constructor;
 };

@@ -12,11 +12,11 @@ public:
 
     // Set the given Javascript value as the i'th parameter to the statement
     static bool bind_statement_param(CassStatement* statement, u_int32_t i,
-                                     v8::Local<v8::Value>& value);
+                                     const v8::Local<v8::Value>& value);
 
     // Append the Javascript value to the given collection
     static bool append_collection(CassCollection* collection,
-                                  v8::Local<v8::Value>& value);
+                                  const v8::Local<v8::Value>& value);
 
     // Get a Javascript result value for the i'th column from the specified row.
     static bool v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
