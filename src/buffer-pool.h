@@ -14,7 +14,7 @@ public:
     v8::Local<v8::Object> allocate(const unsigned char* data, size_t size);
 
 private:
-    v8::Persistent<v8::Function> buffer_constructor_;
+    static v8::Persistent<v8::Function> buffer_constructor_;
     size_t page_size_;
 
     node::Buffer* buffer_;
