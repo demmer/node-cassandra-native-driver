@@ -1,7 +1,7 @@
 {
   "targets": [
     {
-      "target_name": "cassandra-native",
+      "target_name": "cassandra-native-driver",
       "sources": [
         "cpp-driver/src/address.cpp",
         "cpp-driver/src/auth.cpp",

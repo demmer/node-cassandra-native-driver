@@ -1,4 +1,4 @@
-var cassandra = require('../build/Release/cassandra-native');
+var cassandra = require('../build/Release/cassandra-native-driver');
 var lib = require('..');
 
 setTimeout(function() { console.log('Done');}, 1000);

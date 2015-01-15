@@ -27,4 +27,4 @@ void InitAll(Handle<Object> exports) {
         NanNew<FunctionTemplate>(CreateClient)->GetFunction());
 }
 
-NODE_MODULE(cassandra_native, InitAll)
+NODE_MODULE(cassandra_native_driver, InitAll)
