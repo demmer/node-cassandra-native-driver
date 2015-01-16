@@ -31,10 +31,29 @@ TypeMapper::infer_type(const Local<Value>& value)
     }
 }
 
-bool
-TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i, const Local<Value>& value)
+int
+TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params, Local<Array> hints)
 {
-    CassValueType type = infer_type(value);
+    for (u_int32_t i = 0; i < params->Length(); ++i) {
+        const Local<Value>& arg = params->Get(i);
+        CassValueType type = hints.IsEmpty()
+        ? CASS_VALUE_TYPE_UNKNOWN
+        : (CassValueType) hints->Get(i).As<Number>()->Int32Value();
+
+        if (! TypeMapper::bind_statement_param(statement, i, arg, type)) {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
+
+bool
+TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
+                                const Local<Value>& value, CassValueType given_type)
+{
+    CassValueType type = given_type == CASS_VALUE_TYPE_UNKNOWN ? infer_type(value) : given_type;
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
         Local<Object> obj = value->ToObject();

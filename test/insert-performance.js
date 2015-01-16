@@ -7,10 +7,10 @@ var _ = require('underscore');
 var util = require('util');
 
 if (process.argv.length < 5) {
-    throw new Error('usage: node insert-performance <count> <concurrent> <mode> <batch_size>');
+    throw new Error('usage: node insert-performance <count> <concurrency> <mode> <batch_size>');
 }
 var count = parseInt(process.argv[2]);
-var concurrent = parseInt(process.argv[3]);
+var concurrency = parseInt(process.argv[3]);
 var mode = process.argv[4];
 
 var check_results = false;
@@ -75,11 +75,11 @@ client.connect('127.0.0.1')
 .then(function() {
     start = new Date();
     if (batch) {
-        return client.insertRowsPreparedBatch(table, data, batch, concurrent);
+        return client.insertRowsPreparedBatch(table, data, {concurrency: concurrency, batch_size: batch});
     } else if (prepared) {
-        return client.insertRowsPrepared(table, data, concurrent);
+        return client.insertRowsPrepared(table, data, {concurrency: concurrency});
     } else {
-        return client.insertRows(table, data, concurrent);
+        return client.insertRows(table, data, {concurrency: concurrency});
     }
 })
 .then(function(result) {

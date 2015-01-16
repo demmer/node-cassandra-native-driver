@@ -90,17 +90,22 @@ WRAPPED_METHOD(Query, Parse)
 {
     NanScope();
 
-    if (args.Length() < 1 || args.Length() > 2) {
+    if (args.Length() < 1) {
         return NanThrowError("invalid arguments");
     }
 
     Local<String> query = args[0].As<String>();
     Local<Array> params;
+    Local<Object> options;
 
     u_int32_t num_params = 0;
-    if (args.Length() == 2) {
+    if (args.Length() >= 2) {
         params = args[1].As<Array>();
         num_params = params->Length();
+    }
+
+    if (args.Length() > 2) {
+        options = args[2].As<Object>();
     }
 
     // Stash the query so the client library can check it later.
@@ -109,12 +114,12 @@ WRAPPED_METHOD(Query, Parse)
     String::AsciiValue query_str(query);
     statement_ = cass_statement_new(cass_string_init(*query_str), num_params);
 
-    return bind(params);
+    return bind(params, options);
 }
 
 WRAPPED_METHOD(Query, Bind)
 {
-    if (args.Length() != 1) {
+    if (args.Length() != 2) {
         return NanThrowError("invalid arguments");
     }
 
@@ -123,19 +128,26 @@ WRAPPED_METHOD(Query, Bind)
     }
 
     Local<Array> params = args[0].As<Array>();
-    return bind(params);
+    Local<Object> options = args[1].As<Object>();
+
+    return bind(params, options);
 }
 
 _NAN_METHOD_RETURN_TYPE
-Query::bind(Local<Array>& params)
+Query::bind(Local<Array>& params, Local<Object>& options)
 {
-    for (u_int32_t i = 0; i < params->Length(); ++i) {
-        Local<Value> arg = params->Get(i);
-        if (! TypeMapper::bind_statement_param(statement_, i, arg)) {
-            char err[1024];
-            sprintf(err, "error binding statement argument %d", i);
-            return NanThrowError(err);
-        }
+    Local<String> hints_str = NanNew("hints");
+    Local<Array> hints;
+    if (! options.IsEmpty() && options->Has(hints_str)) {
+        hints = options->Get(hints_str).As<Array>();
+    }
+
+    int bindingStatus = TypeMapper::bind_statement_params(statement_, params, hints);
+
+    if (bindingStatus != -1) {
+        char err[1024];
+        sprintf(err, "error binding statement argument %d", bindingStatus);
+        return NanThrowError(err);
     }
 
     NanReturnUndefined();
