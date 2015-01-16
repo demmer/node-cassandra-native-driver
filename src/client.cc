@@ -70,7 +70,7 @@ NAN_METHOD(Client::New) {
 
 WRAPPED_METHOD(Client, Connect) {
     NanScope();
-    if (args.Length() != 2) {
+    if (args.Length() < 2) {
         return NanThrowError("connect requires 2 arguments: address and callback");
     }
 
@@ -78,6 +78,11 @@ WRAPPED_METHOD(Client, Connect) {
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
     cass_cluster_set_contact_points(cluster_, *address);
+
+    if (args.Length() > 2) {
+        int port = args[2].As<Number>()->Int32Value();
+        cass_cluster_set_port(cluster_, port);
+    }
 
     session_ = cass_session_new();
     CassFuture* future = cass_session_connect(session_, cluster_);
