@@ -31,7 +31,7 @@ var data = _.times(10, generate);
 console.log(data);
 
 var client = new TestClient();
-client.connect()
+client.connect({address: '127.0.0.1'})
 .then(function() {
     return client.createKeyspace(ks);
 })

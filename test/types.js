@@ -12,7 +12,7 @@ var tests = {
     double: [1.23, 4.56],
 }
 
-client.connectAsync('127.0.0.1')
+client.connectAsync({address: '127.0.0.1'})
 .then(function() {
 client.executeAsync('use kairosdb;')
 .then(function() {

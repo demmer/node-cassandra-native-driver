@@ -4,7 +4,7 @@ var lib = require('..');
 setTimeout(function() { console.log('Done');}, 1000);
 
 var c = new cassandra.Client();
-c.connect('127.0.0.1', function() {
+c.connect({address: '127.0.0.1'}, function() {
     console.log('connected');
 
     var q = c.new_query();
@@ -23,7 +23,7 @@ c.connect('127.0.0.1', function() {
 });
 
 var c2 = new lib.Client();
-c2.connect('127.0.0.1', function() {
+c2.connect({address: '127.0.0.1'}, function() {
     console.log('connected');
 
     try {
