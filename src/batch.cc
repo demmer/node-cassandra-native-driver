@@ -101,23 +101,30 @@ WRAPPED_METHOD(Batch, AddQuery)
 
 WRAPPED_METHOD(Batch, AddPrepared)
 {
-    if (args.Length() != 2) {
+    if (args.Length() < 2) {
         return NanThrowError("add_prepared requires prepared and vals");
     }
 
     Local<Object> prepared_obj = args[0].As<Object>();
     PreparedQuery* prepared = node::ObjectWrap::Unwrap<PreparedQuery>(prepared_obj->ToObject());
     Local<Array> params = args[1].As<Array>();
+    Local<Array> hints;
+
+    if (args.Length() > 2) {
+        Local<String> hints_str = NanNew("hints");
+        Local<Object> options = args[2].As<Object>();
+        if (options->Has(hints_str)) {
+            hints = options->Get(hints_str).As<Array>();
+        }
+    }
 
     CassStatement* statement = prepared->prepare_statement();
+    int bindingStatus = TypeMapper::bind_statement_params(statement, params, hints);
 
-    for (u_int32_t i = 0; i < params->Length(); ++i) {
-        const Local<Value>& arg = params->Get(i);
-        if (! TypeMapper::bind_statement_param(statement, i, arg)) {
-            char err[1024];
-            sprintf(err, "error binding statement argument %d", i);
-            return NanThrowError(err);
-        }
+    if (bindingStatus != -1) {
+        char err[1024];
+        sprintf(err, "error binding statement argument %d", bindingStatus);
+        return NanThrowError(err);
     }
 
     cass_batch_add_statement(batch_, statement);
