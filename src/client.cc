@@ -1,6 +1,7 @@
 
 #include "client.h"
 #include "batch.h"
+#include "persistent-string.h"
 #include "prepared-query.h"
 #include "query.h"
 
@@ -76,8 +77,8 @@ WRAPPED_METHOD(Client, Connect) {
     }
 
     Local<Object> options = args[0].As<Object>();
-    Local<String> address_str = NanNew("address");
-    Local<String> port_str = NanNew("port");
+    static PersistentString address_str("address");
+    static PersistentString port_str("port");
 
     int port;
 

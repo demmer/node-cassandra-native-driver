@@ -2,6 +2,7 @@
 
 #include "batch.h"
 #include "client.h"
+#include "persistent-string.h"
 #include "prepared-query.h"
 #include "query.h"
 #include "type-mapper.h"
@@ -78,7 +79,8 @@ Batch::~Batch()
 void
 Batch::set_client(const Local<Object>& client)
 {
-    handle_->Set(NanNew("client"), client);
+    static PersistentString client_str("client");
+    handle_->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
@@ -111,7 +113,7 @@ WRAPPED_METHOD(Batch, AddPrepared)
     Local<Array> hints;
 
     if (args.Length() > 2) {
-        Local<String> hints_str = NanNew("hints");
+        static PersistentString hints_str("hints");
         Local<Object> options = args[2].As<Object>();
         if (options->Has(hints_str)) {
             hints = options->Get(hints_str).As<Array>();
