@@ -23,6 +23,7 @@
         "cpp-driver/src/future.cpp",
         "cpp-driver/src/get_time.cpp",
         "cpp-driver/src/handler.cpp",
+        "cpp-driver/src/host.cpp",
         "cpp-driver/src/io_worker.cpp",
         "cpp-driver/src/iterator.cpp",
         "cpp-driver/src/logger.cpp",
