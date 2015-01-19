@@ -2,6 +2,7 @@
 
 #include "prepared-query.h"
 #include "client.h"
+#include "persistent-string.h"
 #include "query.h"
 #include "type-mapper.h"
 
@@ -60,7 +61,8 @@ PreparedQuery::~PreparedQuery()
 void
 PreparedQuery::set_client(Local<Object>& client)
 {
-    handle_->Set(NanNew("client"), client);
+    static PersistentString client_str("client");
+    handle_->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
@@ -136,7 +138,8 @@ WRAPPED_METHOD(PreparedQuery, GetQuery)
 
     Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
 
-    query->set_client(handle_->Get(NanNew("client")).As<Object>());
+    static PersistentString client_str("client");
+    query->set_client(handle_->Get(client_str).As<Object>());
 
     query->set_prepared_statement(prepare_statement());
 

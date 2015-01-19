@@ -3,6 +3,7 @@
 #include "query.h"
 #include "client.h"
 #include "type-mapper.h"
+#include "persistent-string.h"
 
 #define dprintf(...)
 //#define dprintf printf
@@ -72,7 +73,8 @@ Query::~Query()
 void
 Query::set_client(const Local<Object>& client)
 {
-    handle_->Set(NanNew("client"), client);
+    static PersistentString client_str("client");
+    handle_->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
@@ -109,7 +111,8 @@ WRAPPED_METHOD(Query, Parse)
     }
 
     // Stash the query so the client library can check it later.
-    handle_->Set(NanNew("query"), query);
+    static PersistentString query_key("query");
+    handle_->Set(query_key, query);
 
     String::AsciiValue query_str(query);
     statement_ = cass_statement_new(cass_string_init(*query_str), num_params);
@@ -136,7 +139,7 @@ WRAPPED_METHOD(Query, Bind)
 _NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
-    Local<String> hints_str = NanNew("hints");
+    static PersistentString hints_str("hints");
     Local<Array> hints;
     if (! options.IsEmpty() && options->Has(hints_str)) {
         hints = options->Get(hints_str).As<Array>();
@@ -178,7 +181,7 @@ WRAPPED_METHOD(Query, Execute)
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
     u_int32_t paging_size = 5000;
-    Local<String> fetchSize = NanNew("fetchSize");
+    static PersistentString fetchSize("fetchSize");
     if (options->Has(fetchSize)) {
         paging_size = options->Get(fetchSize).As<Number>()->Uint32Value();
     }

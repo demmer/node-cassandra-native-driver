@@ -1,6 +1,7 @@
 #include <cassandra.h>
 
 #include "result.h"
+#include "persistent-string.h"
 #include "type-mapper.h"
 
 Result::Result()
@@ -41,11 +42,13 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
 
     Local<Array> res = NanNew<Array>();
 
+    static PersistentString more_str("more");
     cass_bool_t more = cass_result_has_more_pages(result_);
-    res->Set(NanNew("more"), more ? NanTrue() : NanFalse() );
+    res->Set(more_str, more ? NanTrue() : NanFalse() );
 
+    static PersistentString rows_str("rows");
     Local<Array> data = NanNew<Array>();
-    res->Set(NanNew("rows"), data);
+    res->Set(rows_str, data);
     CassIterator* iterator = cass_iterator_from_result(result_);
 
     // Stash the column info for the first batch of results.
