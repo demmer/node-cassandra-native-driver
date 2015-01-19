@@ -1,8 +1,10 @@
 var TestClient = require('./test-client');
+var Promise = require('bluebird');
 var expect = require('chai').expect;
 var ks = 'paging_test';
 var table = 'test';
 var _ = require('underscore');
+var util = require('util');
 
 var fields = {
     "row": "varchar",
@@ -13,7 +15,7 @@ var fields = {
 var key = "row, col";
 
 function string(x) {
-    return '\'' + x.toString() + '\'';
+    return x.toString();
 }
 var col = 0;
 function generate() {
@@ -27,11 +29,14 @@ function generate() {
     return ret;
 }
 
-var data = _.times(10, generate);
+var data = _.times(100, generate);
 console.log(data);
 
 var client = new TestClient();
 client.connect({address: '127.0.0.1'})
+.then(function() {
+    return client.cleanKeyspace(ks);
+})
 .then(function() {
     return client.createKeyspace(ks);
 })
@@ -45,10 +50,12 @@ client.connect({address: '127.0.0.1'})
     return client.insertRows(table, data);
 })
 .then(function() {
+    console.log('reading with autopage');
     return client.execute('select * from ' + table, [],
                           {fetchSize: 2, autoPage: true});
 })
 .then(function(results) {
+    console.log('got', results.rows.length, 'rows');
     expect(results.rows.length).equal(data.length);
     var rows = _.sortBy(results.rows, 'col');
     for (i = 0; i < rows.length; ++i) {
@@ -58,19 +65,22 @@ client.connect({address: '127.0.0.1'})
 .then(function() {
     // test manual paging
     var cols = [];
-    return client.execute('select * from ' + table, [], {fetchSize: 5})
+    console.log('testing manual paging')
+    return client.execute('select * from ' + table, [], {fetchSize: data.length / 2})
     .then(function(results) {
-        expect(results.rows.length).equal(5);
+        console.log('got', results.rows.length, 'rows');
+        expect(results.rows.length).equal(data.length / 2);
         cols = cols.concat(_.pluck(results.rows, 'col'));
         expect(results.meta.pageState).not.null();
         return client.execute('select * from ' + table, [],
-            {fetchSize: 5, pageState: results.meta.pageState});
+            {fetchSize: data.length / 2, pageState: results.meta.pageState});
     })
     .then(function(results) {
-        expect(results.rows.length).equal(5);
+        console.log('got', results.rows.length, 'rows');
+        expect(results.rows.length).equal(data.length / 2);
         cols = cols.concat(_.pluck(results.rows, 'col'));
 
-        cols = cols.sort();
+        cols.sort(function(a,b) { return a - b; });
         for (i = 0; i < cols.length; ++i) {
             expect(cols[i]).equal(i);
         }

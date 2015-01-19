@@ -9,6 +9,7 @@
 
 using namespace v8;
 
+class AsyncFuture;
 class Client;
 
 // Wrapper for an in-progress PreparedQuery to the back end
@@ -41,20 +42,13 @@ private:
     WRAPPED_METHOD_DECL(Prepare);
     WRAPPED_METHOD_DECL(GetQuery);
 
-    static void on_prepared_ready(CassFuture* future, void* data);
-    void prepared_ready(CassFuture* future);
-
-    static void on_async_ready(uv_async_t* handle, int status);
-    void async_ready();
+    static void on_prepared_ready(CassFuture* future, void* client, void* data);
+    void prepared_ready(CassFuture* future, NanCallback* callback);
 
     CassSession* session_;
+    AsyncFuture* async_;
     CassStatement* statement_;
     const CassPrepared* prepared_;
-    NanCallback* callback_;
-    CassError result_code_;
-    std::string result_error_;
-
-    uv_async_t* async_;
 
     static v8::Persistent<v8::Function> constructor;
 };

@@ -69,6 +69,7 @@ var TestClient = Base.extend({
     // function.
     insertRows: function(table, data, options) {
         var self = this;
+        options = options || {};
         var hints = options.hints || {};
         var hintsArray = [];
         var count = data.length;
