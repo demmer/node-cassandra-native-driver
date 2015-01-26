@@ -40,7 +40,7 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
 
     result_ = cass_future_get_result(future);
 
-    Local<Array> res = NanNew<Array>();
+    Local<Object> res = NanNew<Object>();
 
     static PersistentString more_str("more");
     cass_bool_t more = cass_result_has_more_pages(result_);
