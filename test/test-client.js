@@ -112,7 +112,6 @@ var TestClient = Base.extend({
             var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
             return self.client.prepareAsync(cql)
             .then(function(p) {
-                console.log('got prepared', p);
                 prepared = p;
             });
         }
@@ -151,7 +150,6 @@ var TestClient = Base.extend({
             var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
             return self.client.prepareAsync(cql)
             .then(function(p) {
-                console.log('got prepared', p);
                 prepared = p;
             });
         }

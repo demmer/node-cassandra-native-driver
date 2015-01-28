@@ -10,13 +10,11 @@ using namespace v8;
 Persistent<Function> Client::constructor;
 
 Client::Client() {
-    printf("In Client constructor %p\n", this);
     cluster_ = cass_cluster_new();
     session_ = NULL;
 }
 
 Client::~Client() {
-    printf("In Client destructor %p\n", this);
     if (session_) {
         cass_session_free(session_);
         session_ = NULL;
