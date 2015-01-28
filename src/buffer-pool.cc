@@ -21,7 +21,6 @@ BufferPool::allocate(const unsigned char* data, size_t size) {
     }
 
     if (buffer_ == NULL || (buf_offset_ + size) > page_size_) {
-        printf("allocating new pagebuf\n");
         buffer_ = node::Buffer::New(std::max(page_size_, size));
         buf_data_ = node::Buffer::Data(buffer_->handle_);
         buf_offset_ = 0;

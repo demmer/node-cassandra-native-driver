@@ -44,15 +44,12 @@ NAN_METHOD(PreparedQuery::New) {
 
 PreparedQuery::PreparedQuery()
 {
-    printf("PreparedQuery::PreparedQuery %p\n", this);
     statement_ = NULL;
     prepared_ = NULL;
 }
 
 PreparedQuery::~PreparedQuery()
 {
-    printf("PreparedQuery::~PreparedQuery %p\n", this);
-
     if (statement_) {
         cass_statement_free(statement_);
     }
