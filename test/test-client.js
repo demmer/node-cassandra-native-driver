@@ -69,26 +69,50 @@ var TestClient = Base.extend({
             name, columns, key, opts));
     },
 
-    // Insert n rows of data into the given table using the supplied generator
-    // function.
-    insertRows: function(table, data, options) {
-        var self = this;
-        options = options || {};
-        var hints = options.hints || {};
-        var hintsArray = [];
+    _getInsertQuery: function(table, data, options) {
         var count = data.length;
         var keys = _.keys(data[0]);
         var cols = keys.join(',');
 
         var vars = _.map(keys, function(k) {
-            hintsArray.push(hints[k] || types.CASS_VALUE_TYPE_UNKNOWN);
             return '?';
         }).join(',');
 
+        var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
+
+        var hints = options.hints || {};
+        var hintsArray = _.map(keys, function(k) {
+            return hints[k] || types.CASS_VALUE_TYPE_UNKNOWN;
+        });
+
+        if (options.timestamp && options.ttl) {
+            cql = cql + ' USING TIMESTAMP ? AND TTL ?';
+            hintsArray.push(types.CASS_VALUE_TYPE_TIMESTAMP);
+            hintsArray.push(types.CASS_VALUE_TYPE_INT);
+
+        } else if (options.timestamp || options.ttl) {
+            throw new Error('xxx not implemented');
+        }
+
+        return {cql: cql, hints: hintsArray};
+    },
+
+    // Insert n rows of data into the given table using the supplied generator
+    // function.
+    insertRows: function(table, data, options) {
+        var self = this;
+        options = options || {};
+        var keys = _.keys(data[0]);
+        var query = this._getInsertQuery(table, data, options);
+
         function insert(d) {
             var vals = _.map(keys, function(k) { return d[k]; });
-            return self.execute(util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars),
-                vals, {hints: hintsArray});
+            if (options.timestamp && options.ttl) {
+                vals.push(options.timestamp);
+                vals.push(options.ttl);
+            }
+
+            return self.execute(query.cql, vals, {hints: query.hints});
         }
         return Promise.map(data, insert, {concurrency: options.concurrency});
     },
@@ -96,21 +120,13 @@ var TestClient = Base.extend({
     insertRowsPrepared: function(table, data, options) {
         var self = this;
         var prepared;
-
         var count = data.length;
         var keys = _.keys(data[0]);
-        var cols = keys.join(',');
-        var hints = options.hints || {};
-        var hintsArray = [];
 
-        var vars = _.map(keys, function(k) {
-            hintsArray.push(hints[k] || types.CASS_VALUE_TYPE_UNKNOWN);
-            return '?';
-        }).join(',');
+        var query = this._getInsertQuery(table, data, options);
 
         function prepare() {
-            var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
-            return self.client.prepareAsync(cql)
+            return self.client.prepareAsync(query.cql)
             .then(function(p) {
                 prepared = p;
             });
@@ -118,9 +134,14 @@ var TestClient = Base.extend({
 
         function _insert(d, i, n, cb) {
             var vals = _.map(keys, function(k) { return d[k]; });
-            var query = prepared.query();
-            query.bind(vals, {hints: hintsArray});
-            query.execute({}, cb);
+            if (options.timestamp && options.ttl) {
+                vals.push(options.timestamp);
+                vals.push(options.ttl);
+            }
+
+            var q = prepared.query();
+            q.bind(vals, {hints: query.hints});
+            q.execute({}, cb);
         }
 
         var insert = Promise.promisify(_insert);
@@ -136,19 +157,11 @@ var TestClient = Base.extend({
 
         var count = data.length;
         var keys = _.keys(data[0]);
-        var cols = keys.join(',');
-        var hints = options.hints || {};
-        var hintsArray = [];
         var batch_size = options.batch_size || 1;
 
-        var vars = _.map(keys, function(k) {
-            hintsArray.push(hints[k] || types.CASS_VALUE_TYPE_UNKNOWN);
-            return '?';
-        }).join(',');
-
+        var query = this._getInsertQuery(table, data, options);
         function prepare() {
-            var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
-            return self.client.prepareAsync(cql)
+            return self.client.prepareAsync(query.cql)
             .then(function(p) {
                 prepared = p;
             });
@@ -166,7 +179,11 @@ var TestClient = Base.extend({
                 }
 
                 var vals = _.map(keys, function(k) { return d[k]; });
-                batch.add_prepared(prepared, vals, {hints: hintsArray});
+                if (options.timestamp && options.ttl) {
+                    vals.push(options.timestamp);
+                    vals.push(options.ttl);
+                }
+                batch.add_prepared(prepared, vals, {hints: query.hints});
             });
             batch.execute({}, cb);
         }
