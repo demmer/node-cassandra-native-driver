@@ -92,6 +92,11 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         cass_statement_bind_int32(statement, i, intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_TIMESTAMP: {
+        cass_int64_t intValue = value->ToNumber()->IntegerValue();
+        cass_statement_bind_int64(statement, i, intValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_BOOLEAN: {
         cass_bool_t booleanValue = (value->BooleanValue() ? cass_true : cass_false);
         cass_statement_bind_bool(statement, i, booleanValue);
@@ -120,7 +125,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
-    case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
@@ -149,6 +153,11 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         cass_collection_append_int32(collection, intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_TIMESTAMP: {
+        cass_int64_t intValue = value->ToNumber()->IntegerValue();
+        cass_collection_append_int64(collection, intValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_DOUBLE: {
         cass_double_t doubleValue = value->ToNumber()->NumberValue();
         cass_collection_append_double(collection, doubleValue);
@@ -173,7 +182,6 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
-    case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
@@ -213,6 +221,14 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
             return false;
         }
         *result = NanNew<Number>(intValue);
+        return true;
+    }
+    case CASS_VALUE_TYPE_TIMESTAMP: {
+        cass_int64_t intValue;
+        if (cass_value_get_int64(value, &intValue) != CASS_OK) {
+            return false;
+        }
+        *result = NanNew<Number>((double)intValue);
         return true;
     }
     case CASS_VALUE_TYPE_DOUBLE: {
@@ -257,7 +273,6 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
-    case CASS_VALUE_TYPE_TIMESTAMP:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
