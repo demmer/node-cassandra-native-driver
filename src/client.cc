@@ -95,6 +95,7 @@ WRAPPED_METHOD(Client, Connect) {
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
     session_ = cass_session_new();
+
     CassFuture* future = cass_session_connect(session_, cluster_);
     async_.schedule(on_connected, future, this, callback);
 
@@ -120,10 +121,14 @@ Client::connected(CassFuture* future, NanCallback* callback)
         CassString error = cass_future_error_message(future);
         std::string error_str = std::string(error.data, error.length);
 
+        cass_session_free(session_);
+        session_ = NULL;
+
         Handle<Value> argv[] = {
             NanError(error_str.c_str())
         };
         callback->Call(1, argv);
+
     } else {
         Handle<Value> argv[] = {
             NanNull(),
