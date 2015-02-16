@@ -5,6 +5,7 @@
 
 #include "batch.h"
 #include "client.h"
+#include "logging.h"
 #include "prepared-query.h"
 #include "query.h"
 
@@ -25,6 +26,10 @@ void InitAll(Handle<Object> exports) {
 
     exports->Set(NanNew("Client"),
         NanNew<FunctionTemplate>(CreateClient)->GetFunction());
+    exports->Set(NanNew("set_log_callback"),
+        NanNew<FunctionTemplate>(SetLogCallback)->GetFunction());
+    exports->Set(NanNew("set_log_level"),
+        NanNew<FunctionTemplate>(SetLogLevel)->GetFunction());
 }
 
 NODE_MODULE(cassandra_native_driver, InitAll)

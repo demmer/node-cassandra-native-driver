@@ -64,6 +64,7 @@
         "src/buffer-pool.cc",
         "src/cassandra-driver.cc",
         "src/client.cc",
+        "src/logging.cc",
         "src/prepared-query.cc",
         "src/result.cc",
         "src/query.cc",
