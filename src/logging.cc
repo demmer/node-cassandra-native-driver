@@ -81,6 +81,10 @@ NAN_METHOD(SetLogLevel) {
 
     CassLogLevel level = CASS_LOG_DISABLED;
 
+    // The cassandra.h API includes a CASS_LOG_LEVEL_MAP macro that defines
+    // the log level enum values and corresponding strings.
+    //
+    // Take advantage of that to verify and convert the level argument string.
     if (false) {}
 #define CONVERT(_level, _str) \
     else if (!strcasecmp(*level_str, _str)) { \
