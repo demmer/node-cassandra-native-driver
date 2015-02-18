@@ -12,9 +12,9 @@ public:
     // Return a local handle to the persistent string
     v8::Local<v8::String> handle() {
         if (handle_.IsEmpty()) {
-            NanAssignPersistent(handle_, NanNew<String>(string_.c_str()));
+            NanAssignPersistent(handle_, NanNew<v8::String>(string_.c_str()));
         }
-        return NanNew<String>(handle_);
+        return NanNew<v8::String>(handle_);
     }
 
     // Define the casting operator to a local handle so that a persistent string

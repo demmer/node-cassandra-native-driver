@@ -1,5 +1,9 @@
+var addon = require('./build/Release/cassandra-native-driver');
+
 module.exports = {
     Client: require('./lib/client'),
+    set_log_callback: addon.set_log_callback,
+    set_log_level: addon.set_log_level,
     types: {
         CASS_VALUE_TYPE_UNKNOWN: 0xFFFF,
         CASS_VALUE_TYPE_CUSTOM: 0x0000,
