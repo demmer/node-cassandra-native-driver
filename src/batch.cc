@@ -130,6 +130,7 @@ WRAPPED_METHOD(Batch, AddPrepared)
     }
 
     cass_batch_add_statement(batch_, statement);
+    cass_statement_free(statement);
 
     NanReturnUndefined();
 }
