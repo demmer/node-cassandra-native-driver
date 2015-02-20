@@ -11,8 +11,8 @@ var types = cassandra.types;
 // Wraps a promisified client object and exposes additional helper methods for
 // writing tests.
 var TestClient = Base.extend({
-    initialize: function() {
-        this.client = new cassandra.Client();
+    initialize: function(options) {
+        this.client = new cassandra.Client(options);
         Promise.promisifyAll(this.client);
         this.keyspaces = [];
     },
