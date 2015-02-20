@@ -53,19 +53,35 @@ Local<Object> Client::NewInstance(Local<Value> arg) {
 NAN_METHOD(Client::New) {
     NanScope();
 
-    if (args.IsConstructCall()) {
-        // Invoked as constructor: `new Client(...)`
-        Client* obj = new Client();
-        obj->Wrap(args.This());
-        NanReturnValue(args.This());
-    } else {
-        // Invoked as plain function `Client(...)`, turn into construct call.
-        const int argc = 1;
-        Local<Value> argv[argc] = { args[0] };
-        Local<Function> cons = NanNew<Function>(constructor);
-        NanReturnValue(cons->NewInstance(argc, argv));
+    if (!args.IsConstructCall()) {
+        return NanThrowError("non-constructor invocation not supported");
     }
+
+    printf("constructor %d\n", args.Length());
+    Local<Object> opts = args[0].As<Object>();
+    Client* obj = new Client();
+    obj->Wrap(args.This());
+    obj->configure(opts);
+    NanReturnValue(args.This());
 }
+
+void
+Client::configure(v8::Local<v8::Object> opts)
+{
+    const Local<Array> props = opts->GetPropertyNames();
+    const uint32_t length = props->Length();
+    for (uint32_t i = 0; i < length; ++i)
+    {
+        const Local<Value> key = props->Get(i);
+        const Local<Value> value = opts->Get(key);
+
+        String::AsciiValue key_str(key);
+        printf("opt %s %u\n", *key_str, value->Int32Value());
+    }
+
+    NanThrowError("configure not implemented yet... dave get to it");
+}
+
 
 WRAPPED_METHOD(Client, Connect) {
     NanScope();
