@@ -34,6 +34,8 @@ private:
     WRAPPED_METHOD_DECL(NewPreparedQuery);
     WRAPPED_METHOD_DECL(NewBatch);
 
+    void configure(v8::Local<v8::Object> opts);
+
     static v8::Persistent<v8::Function> constructor;
 };
 

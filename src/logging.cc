@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "persistent-string.h"
 #include <cassandra.h>
+#include <vector>
 
 using namespace v8;
 
