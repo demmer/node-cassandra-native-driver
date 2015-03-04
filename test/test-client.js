@@ -29,6 +29,10 @@ var TestClient = Base.extend({
         return this.client.prepareAsync.apply(this.client, arguments);
     },
 
+    new_batch: function(style) {
+        return this.client.new_batch(style);
+    },
+
     createKeyspace: function(name, replication) {
         replication = replication || 1;
         this.keyspaces.push(name);
