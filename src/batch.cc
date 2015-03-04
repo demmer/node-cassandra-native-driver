@@ -94,6 +94,10 @@ WRAPPED_METHOD(Batch, AddQuery)
     }
 
     Local<Object> query_obj = args[0].As<Object>();
+    if (! query_obj->IsObject() || query_obj->InternalFieldCount() == 0) {
+        return NanThrowError("add requires a valid query object");
+    }
+
     Query* query = node::ObjectWrap::Unwrap<Query>(query_obj->ToObject());
 
     cass_batch_add_statement(batch_, query->statement());
@@ -108,6 +112,10 @@ WRAPPED_METHOD(Batch, AddPrepared)
     }
 
     Local<Object> prepared_obj = args[0].As<Object>();
+    if (! prepared_obj->IsObject() || prepared_obj->InternalFieldCount() == 0) {
+        return NanThrowError("add_prepared requires a valid prepared object");
+    }
+
     PreparedQuery* prepared = node::ObjectWrap::Unwrap<PreparedQuery>(prepared_obj->ToObject());
     Local<Array> params = args[1].As<Array>();
     Local<Array> hints;
