@@ -22,15 +22,17 @@ describe('log callback', function() {
         var c = new cassandra.Client();
         return c.connectAsync({address: '127.0.0.1', port: 9999})
         .catch(function(err) {
-            expect(err.message).equal('No hosts available');
+            expect(err.message).equal('No hosts available for the control connection');
             return Promise.delay(1); // return to the event loop
         })
         .then(function() {
-            expect(messages.length).equal(2);
-            expect(messages[0].message).match(/had the following error on startup/);
+            expect(messages.length).equal(3);
+            expect(messages[0].message).match(/connection refused/);
             expect(messages[0].severity).equal('ERROR');
-            expect(messages[1].message).match(/Lost connection/);
-            expect(messages[1].severity).equal('WARN');
+            expect(messages[1].message).match(/had the following error on startup/);
+            expect(messages[1].severity).equal('ERROR');
+            expect(messages[2].message).match(/Lost connection/);
+            expect(messages[2].severity).equal('WARN');
             reset();
         });
     });
@@ -42,7 +44,7 @@ describe('log callback', function() {
         var c = new cassandra.Client();
         return c.connectAsync({address: '127.0.0.1', port: 9999})
         .catch(function(err) {
-            expect(err.message).equal('No hosts available');
+            expect(err.message).equal('No hosts available for the control connection');
             return Promise.delay(1); // return to the event loop
         })
         .then(function() {
