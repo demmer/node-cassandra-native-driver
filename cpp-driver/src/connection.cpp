@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -43,6 +43,13 @@
 #define SSL_READ_SIZE 8192
 #define SSL_WRITE_SIZE 8192
 #define SSL_ENCRYPTED_BUFS_COUNT 16
+
+
+#if UV_VERSION_MAJOR == 0
+#define UV_ERRSTR(status) uv_strerror(uv_last_error(connection->loop_))
+#else
+#define UV_ERRSTR(status) uv_strerror(status)
+#endif
 
 namespace cass {
 
@@ -282,7 +289,7 @@ void Connection::set_is_available(bool is_available) {
 
 void Connection::consume(char* input, size_t size) {
   char* buffer = input;
-  int remaining = size;
+  size_t remaining = size;
 
   while (remaining != 0) {
     int consumed = response_->decode(protocol_version_, buffer, remaining);
@@ -296,9 +303,12 @@ void Connection::consume(char* input, size_t size) {
       ScopedPtr<ResponseMessage> response(response_.release());
       response_.reset(new ResponseMessage());
 
-      LOG_TRACE("Consumed message type %s with stream %d, input %lu, remaining %d on host %s",
-                opcode_to_string(response->opcode()).c_str(), static_cast<int>(response->stream()),
-                size, remaining, addr_string_.c_str());
+      LOG_TRACE("Consumed message type %s with stream %d, input %u, remaining %u on host %s",
+                opcode_to_string(response->opcode()).c_str(),
+                static_cast<int>(response->stream()),
+                static_cast<unsigned int>(size),
+                static_cast<unsigned int>(remaining),
+                addr_string_.c_str());
 
       if (response->stream() < 0) {
         if (response->opcode() == CQL_OPCODE_EVENT) {
@@ -366,14 +376,14 @@ void Connection::maybe_set_keyspace(ResponseMessage* response) {
   }
 }
 
-void Connection::on_connect(Connector* connecter) {
-  Connection* connection = static_cast<Connection*>(connecter->data());
+void Connection::on_connect(Connector* connector) {
+  Connection* connection = static_cast<Connection*>(connector->data());
 
   if (connection->connect_timer_ == NULL) {
     return; // Timed out
   }
 
-  if (connecter->status() == Connector::SUCCESS) {
+  if (connector->status() == 0) {
     LOG_DEBUG("Connected to host %s", connection->addr_string_.c_str());
 
     if (connection->ssl_session_) {
@@ -392,8 +402,8 @@ void Connection::on_connect(Connector* connecter) {
       connection->on_connected();
     }
   } else {
-    LOG_DEBUG("Connect error '%s' on host %s",
-              uv_err_name(uv_last_error(connection->loop_)),
+    LOG_ERROR("Connect error '%s' on host %s",
+              UV_ERRSTR(connector->status()),
               connection->addr_string_.c_str() );
     connection->notify_error("Unable to connect");
   }
@@ -436,46 +446,84 @@ void Connection::on_close(uv_handle_t* handle) {
   delete connection;
 }
 
+#if UV_VERSION_MAJOR == 0
 uv_buf_t Connection::alloc_buffer(uv_handle_t* handle, size_t suggested_size) {
   return uv_buf_init(new char[suggested_size], suggested_size);
 }
+#else
+void Connection::alloc_buffer(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+  buf->base = new char[suggested_size];
+  buf->len = suggested_size;
+}
+#endif
 
+#if UV_VERSION_MAJOR == 0
 void Connection::on_read(uv_stream_t* client, ssize_t nread, uv_buf_t buf) {
+#else
+void Connection::on_read(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
+#endif
   Connection* connection = static_cast<Connection*>(client->data);
 
-  if (nread == -1) {
+  if (nread < 0) {
+#if UV_VERSION_MAJOR == 0
     if (uv_last_error(connection->loop_).code != UV_EOF) {
+#else
+    if (nread != UV_EOF) {
+#endif
       LOG_ERROR("Read error '%s' on host %s",
-                uv_err_name(uv_last_error(connection->loop_)),
+                UV_ERRSTR(nread),
                 connection->addr_string_.c_str());
     }
     connection->defunct();
+#if UV_VERSION_MAJOR == 0
     delete[] buf.base;
+#else
+    delete[] buf->base;
+#endif
     return;
   }
 
-
+#if UV_VERSION_MAJOR == 0
   connection->consume(buf.base, nread);
-
   delete[] buf.base;
+#else
+  connection->consume(buf->base, nread);
+  delete[] buf->base;
+#endif
 }
 
+#if UV_VERSION_MAJOR == 0
 uv_buf_t Connection::alloc_buffer_ssl(uv_handle_t* handle, size_t suggested_size) {
   Connection* connection = static_cast<Connection*>(handle->data);
   char* base = connection->ssl_session_->incoming().peek_writable(&suggested_size);
   return uv_buf_init(base, suggested_size);
 }
+#else
+void Connection::alloc_buffer_ssl(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+  Connection* connection = static_cast<Connection*>(handle->data);
+  buf->base = connection->ssl_session_->incoming().peek_writable(&suggested_size);
+  buf->len = suggested_size;
+}
+#endif
 
+#if UV_VERSION_MAJOR == 0
 void Connection::on_read_ssl(uv_stream_t* client, ssize_t nread, uv_buf_t buf) {
+#else
+void Connection::on_read_ssl(uv_stream_t* client, ssize_t nread, const uv_buf_t* buf) {
+#endif
   Connection* connection = static_cast<Connection*>(client->data);
 
   SslSession* ssl_session = connection->ssl_session_.get();
   assert(ssl_session != NULL);
 
-  if (nread == -1) {
+  if (nread < 0) {
+#if UV_VERSION_MAJOR == 0
     if (uv_last_error(connection->loop_).code != UV_EOF) {
+#else
+    if (nread != UV_EOF) {
+#endif
       LOG_ERROR("Read error '%s' on host %s",
-                uv_err_name(uv_last_error(connection->loop_)),
+                UV_ERRSTR(nread),
                 connection->addr_string_.c_str());
     }
     connection->defunct();
@@ -696,9 +744,9 @@ void Connection::PendingWriteBase::on_write(uv_write_t* req, int status) {
           connection->pending_reads_.add_to_back(handler);
         } else {
           if (!connection->is_closing()) {
-            LOG_INFO("Write error '%s' on host %s",
-                     uv_err_name(uv_last_error(connection->loop_)),
-                     connection->addr_string_.c_str());
+            LOG_ERROR("Write error '%s' on host %s",
+                      UV_ERRSTR(status),
+                      connection->addr_string_.c_str());
             connection->defunct();
           }
 
@@ -772,7 +820,7 @@ void Connection::PendingWriteSsl::encrypt() {
   BufferVec::const_iterator it = buffers_.begin(),
       end = buffers_.end();
 
-  LOG_TRACE("Copying %lu bufs", buffers_.size());
+  LOG_TRACE("Copying %u bufs", static_cast<unsigned int>(buffers_.size()));
 
   bool is_done = (it == end);
 
@@ -809,7 +857,7 @@ void Connection::PendingWriteSsl::encrypt() {
     }
   }
 
-  LOG_TRACE("Copied %lu bytes for encryption", total);
+  LOG_TRACE("Copied %u bytes for encryption", static_cast<unsigned int>(total));
 }
 
 void Connection::PendingWriteSsl::flush() {
@@ -830,7 +878,7 @@ void Connection::PendingWriteSsl::flush() {
     FixedVector<uv_buf_t, SSL_ENCRYPTED_BUFS_COUNT> bufs;
     encrypted_size_ = ssl_session->outgoing().peek_multiple(prev_pos, &bufs);
 
-    LOG_TRACE("Sending %lu encrypted bytes", encrypted_size_);
+    LOG_TRACE("Sending %u encrypted bytes", static_cast<unsigned int>(encrypted_size_));
 
     uv_stream_t* sock_stream = copy_cast<uv_tcp_t*, uv_stream_t*>(&connection_->socket_);
     uv_write(&req_, sock_stream, bufs.data(), bufs.size(), PendingWriteSsl::on_write);

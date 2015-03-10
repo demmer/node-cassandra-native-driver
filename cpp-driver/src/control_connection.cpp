@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -162,7 +162,8 @@ void ControlConnection::reconnect(bool retry_current_host) {
       if (state_ == CONTROL_STATE_READY) {
         schedule_reconnect(1000); // TODO(mpenick): Configurable?
       } else {
-        session_->on_control_connection_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE, "No hosts available");
+        session_->on_control_connection_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE,
+                                              "No hosts available for the control connection");
       }
       return;
     }
@@ -609,7 +610,7 @@ void ControlConnection::on_connection_event(EventResponse* response) {
 
         case EventResponse::DOWN: {
           LOG_INFO("Node %s is down", address_str.c_str());
-          on_down(response->affected_node(), false);
+          on_down(response->affected_node());
           break;
         }
       }
@@ -665,12 +666,12 @@ void ControlConnection::on_up(const Address& address) {
   }
 }
 
-void ControlConnection::on_down(const Address& address, bool is_critical_failure) {
+void ControlConnection::on_down(const Address& address) {
   SharedRefPtr<Host> host = session_->get_host(address);
   if (host) {
     if (host->is_down()) return;
 
-    session_->on_down(host, is_critical_failure);
+    session_->on_down(host);
   } else {
     LOG_DEBUG("Tried to down host %s that doesn't exist", address.to_string().c_str());
   }

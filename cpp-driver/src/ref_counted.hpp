@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ public:
   }
 
   char* data() {
-    return copy_cast<RefBuffer*, char*>(this) + sizeof(RefBuffer);
+    return reinterpret_cast<char*>(this) + sizeof(RefBuffer);
   }
 
   void operator delete(void* ptr) {

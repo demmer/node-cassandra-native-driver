@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -116,22 +116,28 @@ inline char* decode_int64(char* input, cass_int64_t& output) {
 
 inline void encode_float(char* output, float value) {
   BOOST_STATIC_ASSERT(std::numeric_limits<float>::is_iec559);
-  encode_int32(output, *copy_cast<float*, int32_t*>(&value));
+  encode_int32(output, copy_cast<float, int32_t>(value));
 }
 
 inline char* decode_float(char* input, float& output) {
   BOOST_STATIC_ASSERT(std::numeric_limits<float>::is_iec559);
-  return decode_int32(input, *copy_cast<float*, int32_t*>(&output));
+  int32_t int_value;
+  char* pos = decode_int32(input, int_value);
+  output = copy_cast<int32_t, float>(int_value);
+  return pos;
 }
 
 inline void encode_double(char* output, double value) {
   BOOST_STATIC_ASSERT(std::numeric_limits<double>::is_iec559);
-  encode_int64(output, *copy_cast<double*, cass_int64_t*>(&value));
+  encode_int64(output, copy_cast<double, int64_t>(value));
 }
 
 inline char* decode_double(char* input, double& output) {
   BOOST_STATIC_ASSERT(std::numeric_limits<double>::is_iec559);
-  return decode_int64(input, *copy_cast<double*, cass_int64_t*>(&output));
+  cass_int64_t int_value;
+  char* pos = decode_int64(input, int_value);
+  output = copy_cast<int64_t, double>(int_value);
+  return pos;
 }
 
 inline char* decode_string(char* input, char** output, size_t& size) {

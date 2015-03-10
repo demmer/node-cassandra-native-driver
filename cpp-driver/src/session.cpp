@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -125,18 +125,7 @@ int Session::init() {
   rc = request_queue_->init(loop(), this, &Session::on_execute);
   if (rc != 0) return rc;
 
-  unsigned int num_threads = config_.thread_count_io();
-  if (num_threads == 0) {
-    num_threads = 1; // Default if we can't determine the number of cores
-    uv_cpu_info_t* cpu_infos;
-    int cpu_count;
-    if (uv_cpu_info(&cpu_infos, &cpu_count).code == 0 && cpu_count > 0) {
-      num_threads = cpu_count;
-      uv_free_cpu_info(cpu_infos, cpu_count);
-    }
-  }
-
-  for (unsigned int i = 0; i < num_threads; ++i) {
+  for (unsigned int i = 0; i < config_.thread_count_io(); ++i) {
     SharedRefPtr<IOWorker> io_worker(new IOWorker(this));
     int rc = io_worker->init();
     if (rc != 0) return rc;
@@ -217,11 +206,10 @@ bool Session::notify_up_async(const Address& address) {
   return send_event_async(event);
 }
 
-bool Session::notify_down_async(const Address& address, bool is_critical_failure) {
+bool Session::notify_down_async(const Address& address) {
   SessionEvent event;
   event.type = SessionEvent::NOTIFY_DOWN;
   event.address = address;
-  event.is_critical_failure = is_critical_failure;
   return send_event_async(event);
 }
 
@@ -402,7 +390,7 @@ void Session::on_event(const SessionEvent& event) {
       break;
 
     case SessionEvent::NOTIFY_DOWN:
-      control_connection_.on_down(event.address, event.is_critical_failure);
+      control_connection_.on_down(event.address);
       break;
 
     default:
@@ -500,6 +488,11 @@ void Session::on_remove(SharedRefPtr<Host> host) {
 
 void Session::on_up(SharedRefPtr<Host> host) {
   host->set_up();
+
+  if (load_balancing_policy_->distance(host) == CASS_HOST_DISTANCE_IGNORE) {
+    return;
+  }
+
   load_balancing_policy_->on_up(host);
 
   for (IOWorkerVec::iterator it = io_workers_.begin(),
@@ -508,13 +501,12 @@ void Session::on_up(SharedRefPtr<Host> host) {
   }
 }
 
-void Session::on_down(SharedRefPtr<Host> host, bool is_critical_failure) {
+void Session::on_down(SharedRefPtr<Host> host) {
   host->set_down();
   load_balancing_policy_->on_down(host);
 
   bool cancel_reconnect = false;
-  if (load_balancing_policy_->distance(host) == CASS_HOST_DISTANCE_IGNORE ||
-      is_critical_failure) {
+  if (load_balancing_policy_->distance(host) == CASS_HOST_DISTANCE_IGNORE) {
     // This permanently removes a host from all IO workers by stopping
     // any attempt to reconnect to that host.
     cancel_reconnect = true;
@@ -537,7 +529,11 @@ Future* Session::execute(const RoutableRequest* request) {
   return future;
 }
 
+#if UV_VERSION_MAJOR == 0
 void Session::on_execute(uv_async_t* data, int status) {
+#else
+void Session::on_execute(uv_async_t* data) {
+#endif
   Session* session = static_cast<Session*>(data->data);
 
   bool is_closing = false;

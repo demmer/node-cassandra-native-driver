@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -13,8 +13,6 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 */
-
-#ifndef DISABLE_UUID_GENERATION
 
 #ifndef __CASS_UUIDS_HPP_INCLUDED__
 #define __CASS_UUIDS_HPP_INCLUDED__
@@ -55,5 +53,3 @@ private:
 } // namespace cass
 
 #endif
-
-#endif // DISABLE_UUID_GENERATION
