@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -30,11 +30,11 @@ class Md5 {
 public:
   Md5();
 
-  void update(const void* data, size_t size);
+  void update(const uint8_t* data, size_t size);
   void final(uint8_t* result);
 
 private:
-  const void* body(const void* data, size_t size);
+  const uint8_t* body(const uint8_t* data, size_t size);
 
 private:
   // Any 32-bit or wider unsigned integer data type will do

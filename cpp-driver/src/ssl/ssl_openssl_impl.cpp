@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -116,7 +116,13 @@ static void crypto_locking_callback(int mode, int n, const char* file, int line)
 }
 
 static unsigned long crypto_id_callback() {
+#if UV_VERSION_MAJOR == 0
   return uv_thread_self();
+#elif defined(WIN32) || defined(_WIN32) 
+  return static_cast<unsigned long>(GetCurrentThreadId());
+#else
+  return copy_cast<uv_thread_t, unsigned long>(uv_thread_self());
+#endif
 }
 
 // Implementation taken from OpenSSL's SSL_CTX_use_certificate_chain_file()
@@ -250,7 +256,7 @@ private:
       }
 
       ASN1_STRING* str = X509_NAME_ENTRY_get_data(name_entry);
-      boost::string_ref common_name(copy_cast<unsigned char*, char*>(ASN1_STRING_data(str)), ASN1_STRING_length(str));
+      boost::string_ref common_name(reinterpret_cast<char*>(ASN1_STRING_data(str)), ASN1_STRING_length(str));
       if (boost::iequals(common_name, addr_str)) {
         return MATCH;
       }
@@ -477,6 +483,5 @@ void OpenSslContextFactory::init() {
   CRYPTO_set_locking_callback(crypto_locking_callback);
   CRYPTO_set_id_callback(crypto_id_callback);
 }
-
 
 } // namespace cass

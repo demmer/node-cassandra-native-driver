@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -42,10 +42,6 @@ public:
 
   bool init(const struct sockaddr* addr);
 
-  struct sockaddr* addr() {
-    return copy_cast<struct sockaddr_storage*, struct sockaddr*>(&addr_);
-  }
-
   const struct sockaddr* addr() const {
     return copy_cast<const struct sockaddr_storage*, const struct sockaddr*>(&addr_);
   }
@@ -66,7 +62,7 @@ public:
     return copy_cast<const struct sockaddr_storage*, const sockaddr_in6*>(&addr_);
   }
 
-  int family() const { return addr()->sa_family; }
+  int family() const { return addr_.ss_family; }
 
   int port() const;
 

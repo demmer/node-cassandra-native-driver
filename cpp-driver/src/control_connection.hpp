@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -64,8 +64,7 @@ public:
   void close();
 
   void on_up(const Address& address);
-  void on_down(const Address& address, bool is_critical_failure);
-
+  void on_down(const Address& address);
 
 private:
   class ControlMultipleRequestHandler : public MultipleRequestHandler {

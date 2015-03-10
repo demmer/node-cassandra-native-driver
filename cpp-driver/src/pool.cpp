@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -48,11 +48,13 @@ Pool::Pool(IOWorker* io_worker,
     , is_initial_connection_(is_initial_connection)
     , is_defunct_(false)
     , is_critical_failure_(false)
-    , is_pending_flush_(false) {}
+    , is_pending_flush_(false)
+    , cancel_reconnect_(false) {}
 
 Pool::~Pool() {
-  LOG_DEBUG("Pool dtor with %lu pending requests pool(%p)",
-            pending_requests_.size(), static_cast<void*>(this));
+  LOG_DEBUG("Pool dtor with %u pending requests pool(%p)",
+            static_cast<unsigned int>(pending_requests_.size()),
+            static_cast<void*>(this));
   while (!pending_requests_.is_empty()) {
     RequestHandler* request_handler
         = static_cast<RequestHandler*>(pending_requests_.front());
@@ -74,7 +76,7 @@ void Pool::connect() {
   }
 }
 
-void Pool::close() {
+void Pool::close(bool cancel_reconnect) {
   if (state_ != POOL_STATE_CLOSING && state_ != POOL_STATE_CLOSED) {
     LOG_DEBUG("Closing pool(%p)", static_cast<void*>(this));
     // We're closing before we've connected (likely because of an error), we need
@@ -87,6 +89,7 @@ void Pool::close() {
     }
 
     set_is_available(false);
+    cancel_reconnect_ = cancel_reconnect;
 
     for (ConnectionVec::iterator it = connections_.begin(),
                                  end = connections_.end();
@@ -136,8 +139,8 @@ void Pool::add_pending_request(RequestHandler* request_handler) {
   pending_requests_.add_to_back(request_handler);
 
   if (pending_requests_.size() % 10 == 0) {
-    LOG_DEBUG("%lu request%s pending on %s pool(%p)",
-              pending_requests_.size() + 1,
+    LOG_DEBUG("%u request%s pending on %s pool(%p)",
+              static_cast<unsigned int>(pending_requests_.size() + 1),
               pending_requests_.size() > 0 ? "s":"",
               address_.to_string().c_str(),
               static_cast<void*>(this));

@@ -1,5 +1,5 @@
 /*
-  Copyright 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -22,3 +22,5 @@
   TypeName& operator=(const TypeName&)
 
 #endif
+
+#define UNUSED_(X) ((void)X)

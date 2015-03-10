@@ -13,7 +13,7 @@ describe('connection error handling', function() {
                 throw new Error('unexpected success');
             })
             .catch(function(err) {
-                expect(err.message).equal('No hosts available');
+                expect(err.message).equal('No hosts available for the control connection');
             });
         });
     });

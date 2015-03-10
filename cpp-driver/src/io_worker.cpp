@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -185,7 +185,9 @@ void IOWorker::notify_pool_ready(Pool* pool) {
 
 void IOWorker::notify_pool_closed(Pool* pool) {
   Address address = pool->address(); // Not a reference on purpose
+
   bool is_critical_failure = pool->is_critical_failure();
+  bool cancel_reconnect = pool->cancel_reconnect();
 
   LOG_INFO("Pool for host %s closed: pool(%p) io_worker(%p)",
            address.to_string().c_str(),
@@ -199,8 +201,10 @@ void IOWorker::notify_pool_closed(Pool* pool) {
   if (is_closing_) {
     maybe_notify_closed();
   } else {
-    schedule_reconnect(address);
-    session_->notify_down_async(address, is_critical_failure);
+    session_->notify_down_async(address);
+    if (!is_critical_failure && !cancel_reconnect) {
+      schedule_reconnect(address);
+    }
   }
 }
 
@@ -280,13 +284,14 @@ void IOWorker::on_event(const IOWorkerEvent& event) {
                   static_cast<void*>(this));
         cancel_reconnect(event.address);
       }
+
       PoolMap::iterator it = pools_.find(event.address);
       if (it != pools_.end()) {
         LOG_DEBUG("REMOVE_POOL event for %s closing pool(%p) io_worker(%p)",
                   event.address.to_string().c_str(),
                   static_cast<void*>(it->second.get()),
                   static_cast<void*>(this));
-        it->second->close();
+        it->second->close(event.cancel_reconnect);
       }
       break;
     }
@@ -297,7 +302,11 @@ void IOWorker::on_event(const IOWorkerEvent& event) {
   }
 }
 
+#if UV_VERSION_MAJOR == 0
 void IOWorker::on_execute(uv_async_t* async, int status) {
+#else
+void IOWorker::on_execute(uv_async_t* async) {
+#endif
   IOWorker* io_worker = static_cast<IOWorker*>(async->data);
 
   RequestHandler* request_handler = NULL;
@@ -316,7 +325,11 @@ void IOWorker::on_execute(uv_async_t* async, int status) {
   io_worker->maybe_close();
 }
 
+#if UV_VERSION_MAJOR == 0
 void IOWorker::on_prepare(uv_prepare_t* prepare, int status) {
+#else
+void IOWorker::on_prepare(uv_prepare_t* prepare) {
+#endif
   IOWorker* io_worker = static_cast<IOWorker*>(prepare->data);
 
   for (PoolVec::iterator it = io_worker->pools_pending_flush_.begin(),

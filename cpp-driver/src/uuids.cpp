@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2014 DataStax
+  Copyright (c) 2014-2015 DataStax
 
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -149,18 +149,22 @@ UuidGen::UuidGen()
   uv_interface_address_t* addresses;
   int address_count;
 
-  if (uv_interface_addresses(&addresses, &address_count).code == 0) {
+#if UV_VERSION_MAJOR == 0
+    if (uv_interface_addresses(&addresses, &address_count).code == UV_OK) {
+#else
+    if (uv_interface_addresses(&addresses, &address_count) == 0) {
+#endif
     for (int i = 0; i < address_count; ++i) {
       char buf[256];
       uv_interface_address_t address = addresses[i];
-      md5.update(address.name, strlen(address.name));
+      md5.update(reinterpret_cast<const uint8_t*>(address.name), strlen(address.name));
       if (address.address.address4.sin_family == AF_INET) {
         uv_ip4_name(&address.address.address4, buf, sizeof(buf));
-        md5.update(buf, strlen(buf));
+        md5.update(reinterpret_cast<const uint8_t*>(buf), strlen(buf));
         has_unique = true;
       } else if (address.address.address4.sin_family == AF_INET6) {
         uv_ip6_name(&address.address.address6, buf, sizeof(buf));
-        md5.update(buf, strlen(buf));
+        md5.update(reinterpret_cast<const uint8_t*>(buf), strlen(buf));
         has_unique = true;
       }
     }
@@ -171,10 +175,14 @@ UuidGen::UuidGen()
   if (has_unique) {
     uv_cpu_info_t* cpu_infos;
     int cpu_count;
-    if (uv_cpu_info(&cpu_infos, &cpu_count).code == 0) {
+#if UV_VERSION_MAJOR == 0
+    if (uv_cpu_info(&cpu_infos, &cpu_count).code == UV_OK) {
+#else
+    if (uv_cpu_info(&cpu_infos, &cpu_count) == 0) {
+#endif
       for (int i = 0; i < cpu_count; ++i) {
         uv_cpu_info_t cpu_info = cpu_infos[i];
-        md5.update(cpu_info.model, strlen(cpu_info.model));
+        md5.update(reinterpret_cast<const uint8_t*>(cpu_info.model), strlen(cpu_info.model));
       }
       uv_free_cpu_info(cpu_infos, cpu_count);
     }
