@@ -539,8 +539,10 @@ void Session::on_execute(uv_async_t* data) {
   bool is_closing = false;
 
   RequestHandler* request_handler = NULL;
+
   while (session->request_queue_->dequeue(request_handler)) {
     if (request_handler != NULL) {
+      size_t hosts_available = 0, ioworkers_unavailable = 0, ioworkers_blocked = 0;
       request_handler->set_query_plan(session->new_query_plan(request_handler->request()));
 
       bool is_done = false;
@@ -549,21 +551,33 @@ void Session::on_execute(uv_async_t* data) {
 
         Address address;
         if (!request_handler->get_current_host_address(&address)) {
-          request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE,
-                                    "Session: No hosts available");
+          char msg[1024];
+          snprintf(msg, sizeof(msg), "Session: No hosts available "
+                  "(tried %zu/%zu hosts, %zu ioworkers: %zu unavailable, %zu full queue)",
+                  hosts_available, session->hosts_.size(), session->io_workers_.size(), ioworkers_unavailable, ioworkers_blocked);
+          request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE, msg);
           break;
         }
+
+        hosts_available++;
 
         size_t start = session->current_io_worker_;
         for (size_t i = 0, size = session->io_workers_.size(); i < size; ++i) {
           const SharedRefPtr<IOWorker>& io_worker = session->io_workers_[start % size];
-          if (io_worker->is_host_available(address) &&
-              io_worker->execute(request_handler)) {
-            session->current_io_worker_ = (start + 1) % size;
-            is_done = true;
-            break;
+          if (! io_worker->is_host_available(address)) {
+            ioworkers_unavailable++;
+            start++;
+            continue;
           }
-          start++;
+
+          if (! io_worker->execute(request_handler)) {
+            ioworkers_blocked++;
+            start++;
+            continue;
+          }
+
+          session->current_io_worker_ = (start + 1) % size;
+          is_done = true;
         }
       }
     } else {
