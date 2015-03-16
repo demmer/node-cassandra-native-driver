@@ -31,5 +31,6 @@ function generate(n) {
 
 module.exports = {
     setup_environment: setup_environment,
-    generate: generate
+    generate: generate,
+    ks: ks
 };
