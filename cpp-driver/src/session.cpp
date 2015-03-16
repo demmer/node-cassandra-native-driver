@@ -542,7 +542,7 @@ void Session::on_execute(uv_async_t* data) {
 
   while (session->request_queue_->dequeue(request_handler)) {
     if (request_handler != NULL) {
-      size_t hosts_available = 0, ioworkers_unavailable = 0, ioworkers_blocked = 0;
+      size_t hosts_tried = 0, ioworkers_unavailable = 0, ioworkers_blocked = 0;
       request_handler->set_query_plan(session->new_query_plan(request_handler->request()));
 
       bool is_done = false;
@@ -553,13 +553,14 @@ void Session::on_execute(uv_async_t* data) {
         if (!request_handler->get_current_host_address(&address)) {
           char msg[1024];
           snprintf(msg, sizeof(msg), "Session: No hosts available "
-                  "(tried %zu/%zu hosts, %zu ioworkers: %zu unavailable, %zu full queue)",
-                  hosts_available, session->hosts_.size(), session->io_workers_.size(), ioworkers_unavailable, ioworkers_blocked);
+                  "(tried %zu/%zu host(s), %zu ioworker(s): %zu unavailable, %zu full queue)",
+                  hosts_tried, session->hosts_.size(), session->io_workers_.size(),
+                  ioworkers_unavailable, ioworkers_blocked);
           request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE, msg);
           break;
         }
 
-        hosts_available++;
+        hosts_tried++;
 
         size_t start = session->current_io_worker_;
         for (size_t i = 0, size = session->io_workers_.size(); i < size; ++i) {
