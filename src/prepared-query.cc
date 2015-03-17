@@ -53,6 +53,9 @@ PreparedQuery::~PreparedQuery()
     if (statement_) {
         cass_statement_free(statement_);
     }
+    if (prepared_) {
+        cass_prepared_free(prepared_);
+    }
 }
 
 void
