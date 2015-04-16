@@ -1,4 +1,7 @@
 {
+  "target_defaults": {
+    "cflags": [ "-Wno-unused-local-typedefs" ]
+  },
   "targets": [
     {
       "target_name": "cassandra-native-driver",
