@@ -19,7 +19,8 @@ var client;
 
 describe('session request limits', function() {
     this.timeout(30000);
-    var messages = [];
+    // only usable for debugging this suite, breaks if you run all the tests
+    /*var messages = [];
     function log_callback(err, log) {
         console.log(log.severity, log.message);
         messages.push(log);
@@ -29,11 +30,11 @@ describe('session request limits', function() {
         while(messages.length > 0) {
             messages.pop();
         }
-    }
+    }*/
 
     before(function() {
-        cassandra.set_log_callback(log_callback);
-        cassandra.set_log_level('INFO');
+        //cassandra.set_log_callback(log_callback);
+        //cassandra.set_log_level('INFO');
         client = new TestClient();
         return test_utils.setup_environment(client)
             .then(function() {
@@ -46,7 +47,7 @@ describe('session request limits', function() {
     });
 
     it('inserts a bunch of data', function() {
-        return client.insertRowsPreparedBatch(table, data, {});
+        return client.insertRowsPreparedBatch(table, data, {concurrency: 10});
     });
 
 
@@ -55,7 +56,7 @@ describe('session request limits', function() {
         return c.connectAsync({address: '127.0.0.1'})
         .delay(250) // let logs be emitted
         .then(function() {
-            var n = 500;
+            var n = 1000;
             return Promise.map(_.range(n), function(i) {
                 var cql = util.format('SELECT * from %s.%s', test_utils.ks, table);
                 return c.executeAsync(cql, [], {})
@@ -81,7 +82,7 @@ describe('session request limits', function() {
         .then(function(result) {
             var errs = _.uniq(_.pluck(_.where(result, {success: false}), 'result'));
             expect(errs.length).equal(0);
-        })
+        });
     });
 
     it('reports session errors: queue size limit exceeded', function() {
@@ -101,7 +102,7 @@ describe('session request limits', function() {
             expect(errs[0]).match(/0 unavailable/);
             expect(errs[0]).match(/1 full queue/);
             expect(errs[1]).match(/The request queue has reached capacity/);
-        })
+        });
     });
 
     it('reports session errors: pending request limit exceeded', function() {
@@ -118,6 +119,6 @@ describe('session request limits', function() {
             expect(errs.length).equal(1);
             expect(errs[0]).match(/1 unavailable/);
             expect(errs[0]).match(/0 full queue/);
-        })
+        });
     });
 });
