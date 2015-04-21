@@ -6,7 +6,7 @@ var test_utils = require('./test-utils');
 
 var client;
 var tests = {
-    varchar: ['foo', 'bar'],
+    varchar: ['foo', String.fromCharCode(160)],
     int: [123, 456],
     boolean: [true, false],
     double: [1.23, 4.56],

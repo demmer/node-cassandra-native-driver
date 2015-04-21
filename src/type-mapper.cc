@@ -82,8 +82,8 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::AsciiValue ascii_str(value->ToString());
-        CassString str = cass_string_init(*ascii_str);
+        String::Utf8Value utf8_str(value->ToString());
+        CassString str = cass_string_init(*utf8_str);
         cass_statement_bind_string(statement, i, str);
         return true;
     }
@@ -170,8 +170,8 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::AsciiValue ascii_str(value->ToString());
-        CassString str = cass_string_init(*ascii_str);
+        String::Utf8Value utf8_str(value->ToString());
+        CassString str = cass_string_init(*utf8_str);
         cass_collection_append_string(collection, str);
         return true;
     }
