@@ -92,6 +92,7 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         cass_statement_bind_int32(statement, i, intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_TIMESTAMP: {
         cass_int64_t intValue = value->ToNumber()->IntegerValue();
         cass_statement_bind_int64(statement, i, intValue);
@@ -121,7 +122,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
-    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
@@ -154,6 +154,7 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         cass_collection_append_int32(collection, intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_TIMESTAMP: {
         cass_int64_t intValue = value->ToNumber()->IntegerValue();
         cass_collection_append_int64(collection, intValue);
@@ -179,7 +180,6 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
-    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
@@ -224,6 +224,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         *result = NanNew<Number>(intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_TIMESTAMP: {
         cass_int64_t intValue;
         if (cass_value_get_int64(value, &intValue) != CASS_OK) {
@@ -270,7 +271,6 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
-    case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
