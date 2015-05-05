@@ -1,6 +1,7 @@
 
 #include "client.h"
 #include "batch.h"
+#include "bulk-prepared.h"
 #include "persistent-string.h"
 #include "prepared-query.h"
 #include "query.h"
@@ -36,6 +37,7 @@ void Client::Init() {
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "new_bulk_prepared", WRAPPED_METHOD_NAME(NewBulkPrepared));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -234,6 +236,20 @@ WRAPPED_METHOD(Client, NewBatch) {
 
         Local<Object> self = Local<Object>::New(handle_);
         batch->set_client(self);
+    }
+
+    NanReturnValue(val);
+}
+
+WRAPPED_METHOD(Client, NewBulkPrepared) {
+    NanScope();
+
+    Local<Value> val = BulkPrepared::NewInstance();
+    if (! val.IsEmpty()) {
+        BulkPrepared* bulk = node::ObjectWrap::Unwrap<BulkPrepared>(val->ToObject());
+
+        Local<Object> self = Local<Object>::New(handle_);
+        bulk->set_client(self);
     }
 
     NanReturnValue(val);

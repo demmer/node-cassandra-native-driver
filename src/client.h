@@ -33,6 +33,7 @@ private:
     WRAPPED_METHOD_DECL(NewQuery);
     WRAPPED_METHOD_DECL(NewPreparedQuery);
     WRAPPED_METHOD_DECL(NewBatch);
+    WRAPPED_METHOD_DECL(NewBulkPrepared);
 
     void configure(v8::Local<v8::Object> opts);
 

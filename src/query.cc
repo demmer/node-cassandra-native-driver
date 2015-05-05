@@ -93,7 +93,7 @@ WRAPPED_METHOD(Query, Parse)
     NanScope();
 
     if (args.Length() < 1) {
-        return NanThrowError("invalid arguments");
+        return NanThrowError("parse: invalid arguments");
     }
 
     Local<String> query = args[0].As<String>();
@@ -123,7 +123,7 @@ WRAPPED_METHOD(Query, Parse)
 WRAPPED_METHOD(Query, Bind)
 {
     if (args.Length() != 2) {
-        return NanThrowError("invalid arguments");
+        return NanThrowError("bind: invalid arguments");
     }
 
     if (statement_ == NULL || prepared_ == false) {
