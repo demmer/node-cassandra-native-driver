@@ -33,6 +33,10 @@ var TestClient = Base.extend({
         return this.client.new_batch(style);
     },
 
+    new_bulk_prepared: function() {
+        return this.client.new_bulk_prepared();
+    },
+
     createKeyspace: function(name, replication) {
         replication = replication || 1;
         this.keyspaces.push(name);
@@ -200,6 +204,71 @@ var TestClient = Base.extend({
         return prepare()
         .then(function() {
             return Promise.map(batches, insert_batch, {concurrency: options.concurrency});
+        })
+        .then(function(results) {
+            return results;
+        });
+    },
+
+    insertRowsBulkPrepared: function(table, data, options) {
+        var self = this;
+        var prepared;
+
+        var count = data.length;
+        var keys = _.keys(data[0]);
+        var bulk_size = options.bulk_size || 1;
+
+        var query = this._getInsertQuery(table, data, options);
+        function prepare() {
+            return self.client.prepareAsync(query.cql)
+            .then(function(p) {
+                prepared = p;
+            });
+        }
+
+        function _insert_bulk(x, bulk_i, n, cb) {
+            var bulk = self.client.new_bulk_prepared();
+
+            _.times(bulk_size, function(i) {
+                var d = data[(bulk_i * bulk_size) + i];
+
+                // The last bulk might not be full
+                if (d === undefined) {
+                    return;
+                }
+
+                var vals = _.map(keys, function(k) { return d[k]; });
+                if (options.timestamp && options.ttl) {
+                    vals.push(options.timestamp);
+                    vals.push(options.ttl);
+                }
+                bulk.add(prepared, vals, {hints: query.hints});
+            });
+            bulk.done(cb);
+        }
+
+        // Create an array with a dummy entry for each bulk just to be able to
+        // use Promise.map
+        var bulks = _.times(Math.ceil(count / bulk_size), _.noop);
+
+        var insert_bulk = Promise.promisify(_insert_bulk);
+        return prepare()
+        .then(function() {
+            return Promise.map(bulks, insert_bulk, {concurrency: options.concurrency});
+        })
+        .then(function(results) {
+            _.each(results, function(result) {
+                var errs = result.errors || [];
+                var expected = Math.min(bulk_size, count);
+                if (expected != result.success + errs.length) {
+                    throw new Error('result counting error: ', expected, result.success, errs.length);
+                }
+
+                if (result.success != expected) {
+                    var err = "error: inserted " + result.success + " out of " + expected;
+                    console.error(err);
+                }
+            });
         });
     }
 });

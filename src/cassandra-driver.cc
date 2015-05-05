@@ -4,6 +4,7 @@
 #include <cassandra.h>
 
 #include "batch.h"
+#include "bulk-prepared.h"
 #include "client.h"
 #include "logging.h"
 #include "prepared-query.h"
@@ -20,6 +21,7 @@ void InitAll(Handle<Object> exports) {
     NanScope();
 
     Batch::Init();
+    BulkPrepared::Init();
     Client::Init();
     PreparedQuery::Init();
     Query::Init();

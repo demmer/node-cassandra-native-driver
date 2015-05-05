@@ -1,7 +1,7 @@
 var Promise = require('bluebird');
-var TestClient = require('./test-client');
+var TestClient = require('../test/test-client');
 var expect = require('chai').expect;
-var ks = 'prepared_test';
+var ks = 'insert_performance';
 var table = 'test';
 var _ = require('underscore');
 var util = require('util');
@@ -15,7 +15,7 @@ var mode = process.argv[4];
 
 var check_results = false;
 
-var prepared, batch;
+var prepared, batch, bulk;
 if (mode === "prepared") {
     prepared = true;
     batch = false;
@@ -26,10 +26,19 @@ else if (mode === "batch") {
 
     if (! batch) { throw new Error('invalid batch size'); }
 }
+else if (mode === "bulk") {
+    prepared = true;
+    bulk = parseInt(process.argv[5]);
+
+    if (! bulk) { throw new Error('invalid bulk size'); }
+}
 else {
     prepared = false;
     batch = false;
+    bulk = false;
 }
+
+console.log('prepared:', prepared, 'batch:', batch, 'bulk:', bulk);
 
 var fields = {
     "row": "varchar",
@@ -57,7 +66,13 @@ function generate() {
 var data = _.times(count, generate);
 
 var start, end;
-var client = new TestClient();
+var client = new TestClient({
+    queue_size_io: 100000,
+    pending_requests_high_water_mark: 10000,
+    pending_requests_low_water_mark: 10000,
+    max_requests_per_flush: 1024
+});
+
 client.connect({address: '127.0.0.1'})
 .then(function() {
     return client.cleanKeyspace(ks);
@@ -76,6 +91,8 @@ client.connect({address: '127.0.0.1'})
     start = new Date();
     if (batch) {
         return client.insertRowsPreparedBatch(table, data, {concurrency: concurrency, batch_size: batch});
+    } else if (bulk) {
+        return client.insertRowsBulkPrepared(table, data, {concurrency: concurrency, bulk_size: bulk});
     } else if (prepared) {
         return client.insertRowsPrepared(table, data, {concurrency: concurrency});
     } else {
@@ -88,6 +105,32 @@ client.connect({address: '127.0.0.1'})
     var N = count;
     console.log(util.format('inserted %d rows in %d ms (%d us / pt, %d points per second)',
         N, elapsed, 1000 * elapsed / N, Math.floor(1000 * N / elapsed)));
+
+})
+.then(function() {
+    start = new Date();
+
+    var N = 0;
+
+    return client.client.queryAsync('select count(*) from ' + table, [], {autoPage: true},
+        function(results) {
+            N = results.rows[0].count
+        }
+    )
+    .then(function() {
+        end = new Date();
+        var elapsed = end - start;
+        console.log(util.format('counted %d rows in %d ms (%d us / pt, %d points per second)',
+            N, elapsed, 1000 * elapsed / N, Math.floor(1000 * N / elapsed)));
+
+        expect(N).equal(count);
+        if (check_results) {
+            cols = _.sortBy(cols, function(c) { return parseInt(c); });
+            for (i = 0; i < cols.length; ++i) {
+                expect(cols[i]).equal(i);
+            }
+        }
+    });
 })
 .then(function() {
     start = new Date();

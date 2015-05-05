@@ -224,6 +224,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         *result = NanNew<Number>(intValue);
         return true;
     }
+    case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_COUNTER:
     case CASS_VALUE_TYPE_TIMESTAMP: {
         cass_int64_t intValue;
@@ -270,7 +271,6 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
     case CASS_VALUE_TYPE_ASCII:
-    case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_FLOAT:
     case CASS_VALUE_TYPE_TEXT:
