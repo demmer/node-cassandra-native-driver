@@ -58,17 +58,20 @@ AsyncFuture::on_async_ready(uv_async_t* handle, int status)
 void
 AsyncFuture::async_ready()
 {
-    do {
-        uv_mutex_lock(&lock_);
-        if (queue_.empty()) {
-            uv_mutex_unlock(&lock_);
-            break;
-        }
-        Pending* pending = queue_.front();
-        queue_.pop();
+    uv_mutex_lock(&lock_);
+    if (queue_.empty()) {
         uv_mutex_unlock(&lock_);
+        return;
+    }
 
+    std::queue<Pending*> ready_queue;
+    std::swap(queue_, ready_queue);
+    uv_mutex_unlock(&lock_);
+
+    while (! ready_queue.empty()) {
+        Pending* pending = ready_queue.front();
+        ready_queue.pop();
         pending->callback_(pending->future_, pending->client_, pending->data_);
         delete pending;
-    } while (true);
+    }
 }
