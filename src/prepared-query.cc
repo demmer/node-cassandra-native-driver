@@ -4,6 +4,7 @@
 #include "client.h"
 #include "persistent-string.h"
 #include "query.h"
+#include "metrics.h"
 #include "type-mapper.h"
 
 Persistent<Function> PreparedQuery::constructor;
@@ -67,6 +68,7 @@ PreparedQuery::set_client(Local<Object>& client)
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
     async_ = c->get_async();
+    metrics_ = c->metrics();
 }
 
 WRAPPED_METHOD(PreparedQuery, Prepare)
@@ -82,6 +84,7 @@ WRAPPED_METHOD(PreparedQuery, Prepare)
 
     String::AsciiValue query_str(query);
     CassFuture* future = cass_session_prepare(session_, cass_string_init(*query_str));
+    metrics_->start_request();
     async_->schedule(on_prepared_ready, future, this, callback);
 
     Ref();
@@ -101,6 +104,7 @@ PreparedQuery::on_prepared_ready(CassFuture* future, void* client, void* data)
 void
 PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 {
+    metrics_->stop_request();
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
         CassString error = cass_future_error_message(future);

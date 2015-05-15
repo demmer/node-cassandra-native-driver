@@ -2,6 +2,7 @@
 
 #include "query.h"
 #include "client.h"
+#include "metrics.h"
 #include "type-mapper.h"
 #include "persistent-string.h"
 
@@ -79,6 +80,7 @@ Query::set_client(const Local<Object>& client)
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
     async_ = c->get_async();
+    metrics_ = c->metrics();
 }
 
 void
@@ -196,6 +198,7 @@ WRAPPED_METHOD(Query, Execute)
     }
 
     CassFuture* future = cass_session_execute(session_, statement_);
+    metrics_->start_request();
     async_->schedule(on_result_ready, future, this, callback);
 
     NanReturnUndefined();
@@ -214,6 +217,8 @@ void
 Query::result_ready(CassFuture* future, NanCallback* callback)
 {
     NanScope();
+
+    metrics_->stop_request();
 
     fetching_ = false;
     result_.do_callback(future, callback);

@@ -33,6 +33,10 @@ var TestClient = Base.extend({
         return this.client.new_batch(style);
     },
 
+    metrics: function (reset) {
+        return this.client.metrics(reset);
+    },
+
     createKeyspace: function(name, replication) {
         replication = replication || 1;
         this.keyspaces.push(name);

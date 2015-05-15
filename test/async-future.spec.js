@@ -69,19 +69,28 @@ describe('async-future callbacks', function() {
         var Q = 0;
         var T = 1;
 
+        client.metrics(true); // reset metrics
+
         function query() {
             client.client.execute(cql, [], function(err, result) {
                 console.log('query', Q, 'done');
                 Q++;
+                expect(client.metrics().response_count).equal(Q);
 
                 if (Q == N) {
                     expect(T).equal(N);
+                    expect(client.metrics().pending_request_count_max).equals(1);
+                    expect(client.metrics().response_queue_drain_count_max).equals(1);
+                    expect(client.metrics().response_queue_drain_time_max).within(1000000, 11000000);
                     return done();
                 }
 
                 query();
                 spin(1000);
             });
+
+            expect(client.metrics().request_count).equal(Q + 1);
+            expect(client.metrics().response_count).equal(Q);
         }
         query();
 
@@ -95,7 +104,6 @@ describe('async-future callbacks', function() {
         }
         interval = setInterval(timer, 900);
     });
-
 
     after(function() {
         return client.cleanup();

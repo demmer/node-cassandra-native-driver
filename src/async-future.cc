@@ -1,7 +1,11 @@
 #include "async-future.h"
+#include <sys/time.h>
+#include "metrics.h"
 
-AsyncFuture::AsyncFuture()
+AsyncFuture::AsyncFuture(Metrics* metrics)
 {
+    metrics_ = metrics;
+
     uv_mutex_init(&lock_);
 
     async_ = new uv_async_t();
@@ -55,6 +59,18 @@ AsyncFuture::on_async_ready(uv_async_t* handle, int status)
     self->async_ready();
 }
 
+uint32_t
+timeval_diff_us(const struct timeval &start, const struct timeval &end)
+{
+    if (start.tv_usec > end.tv_usec) {
+        return ((end.tv_sec - 1 - start.tv_sec) * 1000000) +
+               ((end.tv_usec + 1000000 - start.tv_usec));
+    } else {
+        return ((end.tv_sec - start.tv_sec) * 1000000) +
+               ((end.tv_usec - start.tv_usec));
+    }
+}
+
 void
 AsyncFuture::async_ready()
 {
@@ -68,10 +84,27 @@ AsyncFuture::async_ready()
     std::swap(queue_, ready_queue);
     uv_mutex_unlock(&lock_);
 
+    uint32_t count = 0;
+    struct timeval start, end;
+    uint32_t elapsed;
+
+    ::gettimeofday(&start, 0);
     while (! ready_queue.empty()) {
         Pending* pending = ready_queue.front();
         ready_queue.pop();
         pending->callback_(pending->future_, pending->client_, pending->data_);
         delete pending;
+        count++;
+    }
+
+    ::gettimeofday(&end, 0);
+    elapsed = timeval_diff_us(start, end);
+
+    if (count > metrics_->response_queue_drain_count_max_) {
+        metrics_->response_queue_drain_count_max_ = count;
+    }
+
+    if (elapsed > metrics_->response_queue_drain_time_max_) {
+        metrics_->response_queue_drain_time_max_ = elapsed;
     }
 }

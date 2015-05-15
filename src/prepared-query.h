@@ -11,6 +11,7 @@ using namespace v8;
 
 class AsyncFuture;
 class Client;
+class Metrics;
 
 // Wrapper for an in-progress PreparedQuery to the back end
 class PreparedQuery: public node::ObjectWrap {
@@ -47,6 +48,7 @@ private:
 
     CassSession* session_;
     AsyncFuture* async_;
+    Metrics* metrics_;
     CassStatement* statement_;
     const CassPrepared* prepared_;
 
