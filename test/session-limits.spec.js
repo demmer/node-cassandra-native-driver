@@ -99,9 +99,8 @@ describe('session request limits', function() {
             var errs = _.uniq(_.pluck(_.where(result, {success: false}), 'result')).sort();
             expect(errs.length).equal(2);
             console.log(errs);
-            expect(errs[0]).match(/0 unavailable/);
-            expect(errs[0]).match(/1 full queue/);
-            expect(errs[1]).match(/The request queue has reached capacity/);
+            expect(errs[0]).equals("All connections on all I/O threads are busy");
+            expect(errs[1]).equals("The request queue has reached capacity");
         });
     });
 
@@ -117,8 +116,7 @@ describe('session request limits', function() {
         .then(function(result) {
             var errs = _.uniq(_.pluck(_.where(result, {success: false}), 'result'));
             expect(errs.length).equal(1);
-            expect(errs[0]).match(/1 unavailable/);
-            expect(errs[0]).match(/0 full queue/);
+            expect(errs[0]).equals("All connections on all I/O threads are busy");
         });
     });
 });

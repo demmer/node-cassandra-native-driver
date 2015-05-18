@@ -2,6 +2,7 @@
 
 #include "prepared-query.h"
 #include "client.h"
+#include "error-callback.h"
 #include "persistent-string.h"
 #include "query.h"
 #include "metrics.h"
@@ -83,7 +84,7 @@ WRAPPED_METHOD(PreparedQuery, Prepare)
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
     String::AsciiValue query_str(query);
-    CassFuture* future = cass_session_prepare(session_, cass_string_init(*query_str));
+    CassFuture* future = cass_session_prepare_n(session_, *query_str, query_str.length());
     metrics_->start_request();
     async_->schedule(on_prepared_ready, future, this, callback);
 
@@ -107,14 +108,7 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
     metrics_->stop_request();
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        std::string error_str = std::string(error.data, error.length);
-
-        Handle<Value> argv[] = {
-            NanError(error_str.c_str())
-        };
-        callback->Call(1, argv);
-
+        error_callback(future, callback);
     } else {
         prepared_ = cass_future_get_prepared(future);
 

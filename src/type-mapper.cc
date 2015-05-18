@@ -57,10 +57,9 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
         Local<Object> obj = value->ToObject();
-        CassBytes data;
-        data.data = (cass_byte_t*) node::Buffer::Data(obj);
-        data.size = node::Buffer::Length(obj);
-        cass_statement_bind_bytes(statement, i, data);
+        cass_statement_bind_bytes(statement, i,
+            (cass_byte_t*) node::Buffer::Data(obj),
+            node::Buffer::Length(obj));
         return true;
     }
     case CASS_VALUE_TYPE_DOUBLE: {
@@ -82,9 +81,8 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::Utf8Value utf8_str(value->ToString());
-        CassString str = cass_string_init(*utf8_str);
-        cass_statement_bind_string(statement, i, str);
+        String::Utf8Value str(value->ToString());
+        cass_statement_bind_string_n(statement, i, *str, str.length());
         return true;
     }
     case CASS_VALUE_TYPE_INT: {
@@ -143,10 +141,9 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
         Local<Object> obj = value->ToObject();
-        CassBytes data;
-        data.data = (cass_byte_t*) node::Buffer::Data(obj);
-        data.size = node::Buffer::Length(obj);
-        cass_collection_append_bytes(collection, data);
+        cass_collection_append_bytes(collection,
+            (cass_byte_t*)node::Buffer::Data(obj),
+            node::Buffer::Length(obj));
         return true;
     }
     case CASS_VALUE_TYPE_INT: {
@@ -171,9 +168,8 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        String::Utf8Value utf8_str(value->ToString());
-        CassString str = cass_string_init(*utf8_str);
-        cass_collection_append_string(collection, str);
+        String::Utf8Value str(value->ToString());
+        cass_collection_append_string_n(collection, *str, str.length());
         return true;
     }
     case CASS_VALUE_TYPE_UNKNOWN:
@@ -201,19 +197,21 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
 {
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
-        CassBytes blob;
-        if (cass_value_get_bytes(value, &blob) != CASS_OK) {
+        const cass_byte_t* data;
+        size_t size;
+        if (cass_value_get_bytes(value, &data, &size) != CASS_OK) {
             return false;
         }
-        *result = pool->allocate(blob.data, blob.size);
+        *result = pool->allocate(data, size);
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
-        CassString str;
-        if (cass_value_get_string(value, &str) != CASS_OK) {
+        const char* data;
+        size_t size;
+        if (cass_value_get_string(value, &data, &size) != CASS_OK) {
             return false;
         }
-        *result = NanNew<String>(str.data, str.length);
+        *result = NanNew<String>(data, size);
         return true;
     }
     case CASS_VALUE_TYPE_INT: {

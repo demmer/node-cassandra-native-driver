@@ -21,8 +21,8 @@ private:
     // Encapsulation of column metadata that can be cached for each row in the
     // results.
     struct Column {
-        Column(CassString name, CassValueType type) {
-            NanAssignPersistent(name_, NanNew(name.data));
+        Column(const char* name, size_t name_length, CassValueType type) {
+            NanAssignPersistent(name_, NanNew<v8::String>(name, name_length));
             type_ = type;
         };
 

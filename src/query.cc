@@ -117,7 +117,7 @@ WRAPPED_METHOD(Query, Parse)
     handle_->Set(query_key, query);
 
     String::AsciiValue query_str(query);
-    statement_ = cass_statement_new(cass_string_init(*query_str), num_params);
+    statement_ = cass_statement_new_n(*query_str, query_str.length(), num_params);
 
     return bind(params, options);
 }

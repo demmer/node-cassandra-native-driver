@@ -1,6 +1,7 @@
 
 #include "client.h"
 #include "batch.h"
+#include "error-callback.h"
 #include "persistent-string.h"
 #include "prepared-query.h"
 #include "query.h"
@@ -177,17 +178,10 @@ Client::connected(CassFuture* future, NanCallback* callback)
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        std::string error_str = std::string(error.data, error.length);
-
         cass_session_free(session_);
         session_ = NULL;
 
-        Handle<Value> argv[] = {
-            NanError(error_str.c_str())
-        };
-        callback->Call(1, argv);
-
+        error_callback(future, callback);
     } else {
         Handle<Value> argv[] = {
             NanNull(),
