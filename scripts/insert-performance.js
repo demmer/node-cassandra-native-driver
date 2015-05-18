@@ -117,6 +117,9 @@ client.connect({address: '127.0.0.1'})
         }
     });
 })
+.then(function() {
+    console.log(client.client.metrics())
+})
 .catch(function(err) {
     console.error(err.stack);
     throw err;
