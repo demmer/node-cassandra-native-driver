@@ -41,18 +41,18 @@ size_t cass_result_column_count(const CassResult* result) {
   return 0;
 }
 
-CassString cass_result_column_name(const CassResult* result, size_t index) {
-  CassString str;
+CassError cass_result_column_name(const CassResult* result,
+                                  size_t index,
+                                  const char** name,
+                                  size_t* name_length) {
   if (result->kind() == CASS_RESULT_KIND_ROWS &&
       index < result->metadata()->column_count()) {
     const cass::ColumnDefinition def = result->metadata()->get(index);
-    str.data = def.name;
-    str.length = def.name_size;
-  } else {
-    str.data = "";
-    str.length = 0;
+    *name = def.name;
+    *name_length = def.name_size;
+    return CASS_OK;
   }
-  return str;
+  return CASS_ERROR_LIB_BAD_PARAMS;
 }
 
 CassValueType cass_result_column_type(const CassResult* result, size_t index) {
@@ -78,7 +78,7 @@ cass_bool_t cass_result_has_more_pages(const CassResult* result) {
 
 namespace cass {
 
-size_t ResultResponse::find_column_indices(boost::string_ref name,
+size_t ResultResponse::find_column_indices(StringRef name,
                                            ResultMetadata::IndexVec* result) const {
   return metadata_->get(name, result);
 }

@@ -14,16 +14,12 @@
   limitations under the License.
 */
 
-#ifndef DISABLE_UUID_GENERATION
-
 #ifndef __CASS_UUIDS_HPP_INCLUDED__
 #define __CASS_UUIDS_HPP_INCLUDED__
 
+#include "atomic.hpp"
 #include "cassandra.h"
-
-#include <boost/atomic.hpp>
-#include <boost/random/mersenne_twister.hpp>
-#include <boost/cstdint.hpp>
+#include "random.hpp"
 
 #include <uv.h>
 #include <assert.h>
@@ -46,14 +42,12 @@ private:
   uint64_t monotonic_timestamp();
 
   uint64_t clock_seq_and_node_;
-  boost::atomic<uint64_t> last_timestamp_;
+  Atomic<uint64_t> last_timestamp_;
 
   uv_mutex_t mutex_;
-  boost::mt19937_64 ng_;
+  MT19937_64 ng_;
 };
 
 } // namespace cass
 
 #endif
-
-#endif // DISABLE_UUID_GENERATION

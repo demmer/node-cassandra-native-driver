@@ -33,7 +33,7 @@ void cass_log_set_callback(CassLogCallback callback,
   cass::Logger::set_callback(callback, data);
 }
 
-void cass_log_set_queue_size(cass_size_t queue_size) {
+void cass_log_set_queue_size(size_t queue_size) {
   cass::Logger::set_queue_size(queue_size);
 }
 
@@ -55,8 +55,9 @@ void stderr_log_callback(const CassLogMessage* message, void* data) {
 Logger::LogThread::LogThread(size_t queue_size)
     : log_queue_(queue_size)
     , has_been_warned_(false)
-    , is_initialized_(init() == 0 && log_queue_.init(loop(), this, on_log) == 0) {
-  if (is_initialized_) {
+    , is_initialized_(false) {
+  if (init() == 0 && log_queue_.init(loop(), this, on_log) == 0) {
+    is_initialized_ = true;
     run();
   } else {
     fprintf(stderr, "Unable to initialize logging thread\n");

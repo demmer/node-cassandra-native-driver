@@ -27,8 +27,6 @@
 #include "result_response.hpp"
 #include "timer.hpp"
 
-#include <boost/bind.hpp>
-
 namespace cass {
 
 static bool least_busy_comp(Connection* a, Connection* b) {
@@ -42,11 +40,11 @@ Pool::Pool(IOWorker* io_worker,
     , address_(address)
     , loop_(io_worker->loop())
     , config_(io_worker->config())
+    , metrics_(io_worker->metrics())
     , state_(POOL_STATE_NEW)
     , available_connection_count_(0)
     , is_available_(false)
     , is_initial_connection_(is_initial_connection)
-    , is_defunct_(false)
     , is_critical_failure_(false)
     , is_pending_flush_(false)
     , cancel_reconnect_(false) {}
@@ -101,8 +99,9 @@ void Pool::close(bool cancel_reconnect) {
          it != end; ++it) {
       (*it)->close();
     }
-    maybe_close();
   }
+
+  maybe_close();
 }
 
 Connection* Pool::borrow_connection() {
@@ -147,7 +146,12 @@ void Pool::add_pending_request(RequestHandler* request_handler) {
   }
 
   if (pending_requests_.size() > config_.pending_requests_high_water_mark()) {
+    LOG_WARN("Exceeded pending requests water mark (current: %u water mark: %u) for host %s",
+             static_cast<unsigned int>(pending_requests_.size()),
+             config_.pending_requests_high_water_mark(),
+             address_.to_string().c_str());
     set_is_available(false);
+    metrics_->exceeded_pending_requests_water_mark.inc();
   }
 }
 
@@ -173,7 +177,7 @@ void Pool::set_is_available(bool is_available) {
 }
 
 bool Pool::write(Connection* connection, RequestHandler* request_handler) {
-  request_handler->set_connection_and_pool(connection, this);
+  request_handler->set_pool(this);
   if (io_worker_->is_current_keyspace(connection->keyspace())) {
     if (!connection->write(request_handler, false)) {
       return false;
@@ -203,11 +207,6 @@ void Pool::flush() {
   }
 }
 
-void Pool::defunct() {
-  is_defunct_ = true;
-  close();
-}
-
 void Pool::maybe_notify_ready() {
   // This will notify ready even if all the connections fail.
   // it is up to the holder to inspect state
@@ -228,18 +227,13 @@ void Pool::maybe_close() {
 void Pool::spawn_connection() {
   if (state_ != POOL_STATE_CLOSING && state_ != POOL_STATE_CLOSED) {
     Connection* connection =
-        new Connection(loop_, config_,
+        new Connection(loop_, config_, metrics_,
                        address_,
                        io_worker_->keyspace(),
-                       io_worker_->protocol_version());
+                       io_worker_->protocol_version(),
+                       this);
 
     LOG_INFO("Spawning new connection to host %s", address_.to_string(true).c_str());
-    connection->set_ready_callback(
-          boost::bind(&Pool::on_connection_ready, this, _1));
-    connection->set_close_callback(
-          boost::bind(&Pool::on_connection_closed, this, _1));
-    connection->set_availability_changed_callback(
-          boost::bind(&Pool::on_connection_availability_changed, this, _1));
     connection->connect();
 
     connections_pending_.insert(connection);
@@ -272,21 +266,24 @@ Connection* Pool::find_least_busy() {
   return NULL;
 }
 
-void Pool::on_connection_ready(Connection* connection) {
+void Pool::on_ready(Connection* connection) {
   connections_pending_.erase(connection);
-  maybe_notify_ready();
-
   connections_.push_back(connection);
   return_connection(connection);
+
+  maybe_notify_ready();
+
+  metrics_->total_connections.inc();
 }
 
-void Pool::on_connection_closed(Connection* connection) {
+void Pool::on_close(Connection* connection) {
   connections_pending_.erase(connection);
 
   ConnectionVec::iterator it =
       std::find(connections_.begin(), connections_.end(), connection);
   if (it != connections_.end()) {
     connections_.erase(it);
+    metrics_->total_connections.dec();
   }
 
   if (connection->is_defunct()) {
@@ -295,39 +292,48 @@ void Pool::on_connection_closed(Connection* connection) {
     if (connection->is_critical_failure()) {
       is_critical_failure_ = true;
     }
-    defunct();
+    close();
+  } else {
+    maybe_notify_ready();
+    maybe_close();
   }
-
-  maybe_notify_ready();
-  maybe_close();
 }
 
-void Pool::on_connection_availability_changed(Connection* connection) {
+void Pool::on_availability_change(Connection* connection) {
   if (connection->is_available()) {
     ++available_connection_count_;
     set_is_available(true);
+
+    metrics_->available_connections.inc();
   } else {
     --available_connection_count_;
     assert(available_connection_count_ >= 0);
     if (available_connection_count_ == 0) {
       set_is_available(false);
     }
+
+    metrics_->available_connections.dec();
   }
 }
 
 void Pool::on_pending_request_timeout(RequestTimer* timer) {
   RequestHandler* request_handler = static_cast<RequestHandler*>(timer->data());
-  remove_pending_request(request_handler);
+  Pool* pool = request_handler->pool();
+  pool->metrics_->pending_request_timeouts.inc();
+  pool->remove_pending_request(request_handler);
   request_handler->retry(RETRY_WITH_NEXT_HOST);
   LOG_DEBUG("Timeout waiting for connection to %s pool(%p)",
-            address_.to_string().c_str(),
-            static_cast<void*>(this));
-  maybe_close();
+            pool->address_.to_string().c_str(),
+            static_cast<void*>(pool));
+  pool->maybe_close();
 }
 
 void Pool::wait_for_connection(RequestHandler* request_handler) {
-  request_handler->start_timer(loop_, config_.connect_timeout_ms(), request_handler,
-                               boost::bind(&Pool::on_pending_request_timeout, this, _1));
+  request_handler->set_pool(this);
+  request_handler->start_timer(loop_,
+                               config_.connect_timeout_ms(),
+                               request_handler,
+                               Pool::on_pending_request_timeout);
   add_pending_request(request_handler);
 }
 

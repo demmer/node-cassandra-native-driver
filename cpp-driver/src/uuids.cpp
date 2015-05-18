@@ -14,8 +14,6 @@
   limitations under the License.
 */
 
-#ifndef DISABLE_UUID_GENERATION
-
 #include "uuids.hpp"
 
 #include "cassandra.h"
@@ -25,8 +23,6 @@
 #include "serialization.hpp"
 #include "scoped_lock.hpp"
 #include "types.hpp"
-
-#include <boost/random/random_device.hpp>
 
 #include <stdio.h>
 #include <ctype.h>
@@ -109,11 +105,23 @@ void cass_uuid_string(CassUuid uuid, char* output) {
   output[pos] = '\0';
 }
 
-CassError cass_uuid_from_string(const char* str, CassUuid* output) {
+CassError cass_uuid_from_string(const char* str,
+                                CassUuid* output) {
+  if (str == NULL) {
+    return CASS_ERROR_LIB_BAD_PARAMS;
+  }
+
+  return cass_uuid_from_string_n(str, strlen(str),
+                                 output);
+}
+
+CassError cass_uuid_from_string_n(const char* str,
+                                  size_t str_length,
+                                  CassUuid* output) {
   const char* pos = str;
   char buf[16];
 
-  if (str == NULL || strlen(str) != 36) {
+  if (str == NULL || str_length != 36) {
     return CASS_ERROR_LIB_BAD_PARAMS;
   }
 
@@ -141,7 +149,7 @@ namespace cass {
 UuidGen::UuidGen()
   : clock_seq_and_node_(0)
   , last_timestamp_(0LL)
-  , ng_(boost::random_device()()){
+  , ng_(get_random_seed(MT19937_64::DEFAULT_SEED)){
   uv_mutex_init(&mutex_);
 
   Md5 md5;
@@ -206,7 +214,7 @@ UuidGen::UuidGen()
 UuidGen::UuidGen(uint64_t node)
   : clock_seq_and_node_(0)
   , last_timestamp_(0LL)
-  , ng_(boost::random_device()()){
+  , ng_(get_random_seed(MT19937_64::DEFAULT_SEED)){
   uv_mutex_init(&mutex_);
   set_clock_seq_and_node(node & 0x0000FFFFFFFFFFFFLL);
 }
@@ -253,7 +261,7 @@ uint64_t UuidGen::monotonic_timestamp() {
     } else {
       uint64_t last_ms = to_milliseconds(last);
       if (to_milliseconds(now) < last_ms) {
-        return ++last_timestamp_;
+        return last_timestamp_.fetch_add(1);
       }
       uint64_t candidate = last + 1;
       if (to_milliseconds(candidate) == last_ms &&
@@ -265,5 +273,3 @@ uint64_t UuidGen::monotonic_timestamp() {
 }
 
 } // namespace cass
-
-#endif // DISABLE_UUID_GENERATION
