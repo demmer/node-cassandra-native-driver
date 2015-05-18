@@ -1,5 +1,5 @@
 var Promise = require('bluebird');
-var TestClient = require('./test-client');
+var TestClient = require('../test/test-client');
 var expect = require('chai').expect;
 var ks = 'prepared_test';
 var table = 'test';
