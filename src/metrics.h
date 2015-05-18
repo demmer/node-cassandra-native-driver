@@ -25,6 +25,7 @@ public:
     uint32_t pending_request_count_max_;
     uint32_t response_queue_drain_count_max_;
     uint32_t response_queue_drain_time_max_;
+    uint32_t response_queue_elapsed_limit_count_;
 };
 
 inline void
@@ -35,6 +36,7 @@ Metrics::clear()
     pending_request_count_max_ = 0;
     response_queue_drain_count_max_ = 0;
     response_queue_drain_time_max_ = 0;
+    response_queue_elapsed_limit_count_ = 0;
 }
 
 inline void
@@ -69,6 +71,7 @@ Metrics::get()
     GET(pending_request_count_max);
     GET(response_queue_drain_count_max);
     GET(response_queue_drain_time_max);
+    GET(response_queue_elapsed_limit_count);
 
 #undef GET
 

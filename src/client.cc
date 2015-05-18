@@ -77,6 +77,7 @@ void
 Client::configure(v8::Local<v8::Object> opts)
 {
     static PersistentString keepalive_str("tcp_keepalive_delay");
+    static PersistentString result_loop_elapsed_max_str("result_loop_elapsed_max");
     const Local<Array> props = opts->GetPropertyNames();
     const uint32_t length = props->Length();
     for (uint32_t i = 0; i < length; ++i)
@@ -122,6 +123,10 @@ Client::configure(v8::Local<v8::Object> opts)
             } else {
                 cass_cluster_set_tcp_nodelay(cluster_, cass_true);
             }
+        }
+
+        if (key->Equals(result_loop_elapsed_max_str)) {
+            async_.set_result_loop_elapsed_max(value);
         }
     }
 }
