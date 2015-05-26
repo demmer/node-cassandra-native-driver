@@ -62,13 +62,8 @@ AsyncFuture::on_async_ready(uv_async_t* handle, int status)
 uint32_t
 timeval_diff_us(const struct timeval &start, const struct timeval &end)
 {
-    if (start.tv_usec > end.tv_usec) {
-        return ((end.tv_sec - 1 - start.tv_sec) * 1000000) +
-               ((end.tv_usec + 1000000 - start.tv_usec));
-    } else {
-        return ((end.tv_sec - start.tv_sec) * 1000000) +
-               ((end.tv_usec - start.tv_usec));
-    }
+    return ((end.tv_sec - start.tv_sec) * 1000000) +
+           ((end.tv_usec - start.tv_usec));
 }
 
 void
