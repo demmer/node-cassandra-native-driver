@@ -16,14 +16,11 @@ Client::Client()
       async_(&metrics_)
 {
     cluster_ = cass_cluster_new();
-    session_ = NULL;
+    session_ = cass_session_new();
 }
 
 Client::~Client() {
-    if (session_) {
-        cass_session_free(session_);
-        session_ = NULL;
-    }
+    cass_session_free(session_);
     cass_cluster_free(cluster_);
 }
 
@@ -154,8 +151,6 @@ WRAPPED_METHOD(Client, Connect) {
 
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
-    session_ = cass_session_new();
-
     CassFuture* future = cass_session_connect(session_, cluster_);
     async_.schedule(on_connected, future, this, callback);
 
@@ -178,9 +173,6 @@ Client::connected(CassFuture* future, NanCallback* callback)
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
-        cass_session_free(session_);
-        session_ = NULL;
-
         error_callback(future, callback);
     } else {
         Handle<Value> argv[] = {
