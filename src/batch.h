@@ -11,6 +11,7 @@ using namespace v8;
 
 class AsyncFuture;
 class Client;
+class Metrics;
 
 // Wrapper for a batched query
 class Batch: public node::ObjectWrap {
@@ -46,6 +47,7 @@ private:
 
     CassSession* session_;
     CassBatch* batch_;
+    Metrics* metrics_;
 
     bool fetching_;
 

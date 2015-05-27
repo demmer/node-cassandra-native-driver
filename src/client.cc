@@ -10,7 +10,10 @@ using namespace v8;
 
 Persistent<Function> Client::constructor;
 
-Client::Client() {
+Client::Client()
+    : metrics_(),
+      async_(&metrics_)
+{
     cluster_ = cass_cluster_new();
     session_ = NULL;
 }
@@ -36,6 +39,7 @@ void Client::Init() {
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "metrics", WRAPPED_METHOD_NAME(Metrics));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -237,4 +241,19 @@ WRAPPED_METHOD(Client, NewBatch) {
     }
 
     NanReturnValue(val);
+}
+
+WRAPPED_METHOD(Client, Metrics) {
+    NanScope();
+
+    bool reset = false;
+    if (args.Length() == 1) {
+        reset = args[0]->IsTrue();
+    }
+
+    Local<Object> metrics = metrics_.get();
+    if (reset) {
+        metrics_.clear();
+    }
+    NanReturnValue(metrics);
 }

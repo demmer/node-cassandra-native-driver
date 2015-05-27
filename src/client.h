@@ -7,6 +7,7 @@
 #include "wrapped-method.h"
 #include "buffer-pool.h"
 #include "async-future.h"
+#include "metrics.h"
 
 class Client : public node::ObjectWrap {
 public:
@@ -15,10 +16,12 @@ public:
 
     CassSession* get_session() { return session_; }
     AsyncFuture* get_async() { return &async_; }
+    Metrics* metrics() { return &metrics_; }
 private:
     CassCluster* cluster_;
     CassSession* session_;
 
+    Metrics metrics_;
     AsyncFuture async_;
 
     static void on_connected(CassFuture* future, void* client, void* data);
@@ -33,6 +36,7 @@ private:
     WRAPPED_METHOD_DECL(NewQuery);
     WRAPPED_METHOD_DECL(NewPreparedQuery);
     WRAPPED_METHOD_DECL(NewBatch);
+    WRAPPED_METHOD_DECL(Metrics);
 
     void configure(v8::Local<v8::Object> opts);
 

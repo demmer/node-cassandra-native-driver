@@ -2,11 +2,13 @@
 #include <uv.h>
 #include <queue>
 
+class Metrics;
+
 // Helper class to schedule a callback on the v8 main thread to handle a
 // CassFuture.
 class AsyncFuture {
 public:
-    AsyncFuture();
+    AsyncFuture(Metrics* metrics);
     ~AsyncFuture();
 
     // Callback function signature
@@ -28,6 +30,7 @@ private:
         void* data_;
     };
 
+    Metrics* metrics_;
     uv_mutex_t lock_;
     uv_async_t* async_;
     std::queue<Pending*> queue_;
