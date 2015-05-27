@@ -16,6 +16,8 @@
 
 #include "types.hpp"
 
+#include <uv.h>
+
 extern "C" {
 
 const char* cass_error_desc(CassError error) {
@@ -56,32 +58,43 @@ CassInet cass_inet_init_v6(const cass_uint8_t* address) {
   return inet;
 }
 
-CassDecimal cass_decimal_init(cass_int32_t scale, CassBytes varint) {
-  CassDecimal decimal;
-  decimal.scale = scale;
-  decimal.varint = varint;
-  return decimal;
+void cass_inet_string(CassInet inet, char* output) {
+  uv_inet_ntop(inet.address_length == CASS_INET_V4_LENGTH ? AF_INET : AF_INET6,
+               inet.address,
+               output, CASS_INET_STRING_LENGTH);
 }
 
-CassString cass_string_init(const char* null_terminated) {
-  CassString str;
-  str.data = null_terminated;
-  str.length = strlen(null_terminated);
-  return str;
+CassError cass_inet_from_string(const char* str, CassInet* output) {
+#if UV_VERSION_MAJOR == 0
+  if (uv_inet_pton(AF_INET, str, output->address).code == UV_OK) {
+#else
+  if (uv_inet_pton(AF_INET, str, output->address) == 0) {
+#endif
+    output->address_length = CASS_INET_V4_LENGTH;
+    return CASS_OK;
+#if UV_VERSION_MAJOR == 0
+  } else if (uv_inet_pton(AF_INET6, str, output->address).code == UV_OK) {
+#else
+  } else if (uv_inet_pton(AF_INET6, str, output->address) == 0) {
+#endif
+    output->address_length = CASS_INET_V6_LENGTH;
+    return CASS_OK;
+  } else {
+    return CASS_ERROR_LIB_BAD_PARAMS;
+  }
 }
 
-CassString cass_string_init2(const char* data, cass_size_t length) {
-  CassString str;
-  str.data = data;
-  str.length = length;
-  return str;
-}
-
-CassBytes cass_bytes_init(const cass_byte_t* data, cass_size_t size) {
-  CassBytes bytes;
-  bytes.data = data;
-  bytes.size = size;
-  return bytes;
+CassError cass_inet_from_string_n(const char* str,
+                                  size_t str_length,
+                                  CassInet* output) {
+  char buf[CASS_INET_STRING_LENGTH];
+   // Need space for null terminator
+  if (str_length > CASS_INET_STRING_LENGTH - 1) {
+    return CASS_ERROR_LIB_BAD_PARAMS;
+  }
+  memcpy(buf, str, str_length);
+  buf[str_length] = '\0';
+  return cass_inet_from_string(buf, output);
 }
 
 } // extern "C"

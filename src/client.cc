@@ -1,6 +1,7 @@
 
 #include "client.h"
 #include "batch.h"
+#include "error-callback.h"
 #include "persistent-string.h"
 #include "prepared-query.h"
 #include "query.h"
@@ -177,17 +178,10 @@ Client::connected(CassFuture* future, NanCallback* callback)
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        std::string error_str = std::string(error.data, error.length);
-
         cass_session_free(session_);
         session_ = NULL;
 
-        Handle<Value> argv[] = {
-            NanError(error_str.c_str())
-        };
-        callback->Call(1, argv);
-
+        error_callback(future, callback);
     } else {
         Handle<Value> argv[] = {
             NanNull(),
@@ -255,5 +249,39 @@ WRAPPED_METHOD(Client, Metrics) {
     if (reset) {
         metrics_.clear();
     }
+
+    CassMetrics driver_metrics;
+    cass_session_get_metrics(session_, &driver_metrics);
+
+#define X(_name, _group, _metric) \
+    PersistentString _group ## __ ## _metric ## __str(_name); \
+    metrics->Set(_group ## __ ## _metric ## __str, NanNew<Number>(driver_metrics._group._metric));
+
+    X("request_latency_min", requests, min);
+    X("request_latency_max", requests, max);
+    X("request_latency_avg", requests, mean);
+    X("request_latency_stddev", requests, stddev);
+    X("request_latency_median", requests, median);
+    X("request_latency_p75", requests, percentile_75th);
+    X("request_latency_p95", requests, percentile_95th);
+    X("request_latency_p98", requests, percentile_98th);
+    X("request_latency_p99", requests, percentile_99th);
+    X("request_latency_p999", requests, percentile_999th);
+
+    X("request_mean_rate", requests, mean_rate);
+    X("request_1min_rate", requests, one_minute_rate);
+    X("request_5min_rate", requests, five_minute_rate);
+    X("request_15min_rate", requests, fifteen_minute_rate);
+
+    X("total_connections", stats, total_connections);
+    X("available_connections", stats, available_connections);
+    X("exceeded_pending_requests_limit", stats, exceeded_pending_requests_water_mark);
+    X("exceeded_write_bytes_limit", stats, exceeded_write_bytes_water_mark);
+
+    X("connection_timeouts", errors, connection_timeouts);
+    X("pending_request_timeouts", errors, pending_request_timeouts);
+    X("request_timeouts", errors, request_timeouts);
+
+#undef X
     NanReturnValue(metrics);
 }

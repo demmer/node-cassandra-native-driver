@@ -18,6 +18,8 @@
 #define __CASS_POOL_HPP_INCLUDED__
 
 #include "cassandra.h"
+#include "connection.hpp"
+#include "metrics.hpp"
 #include "ref_counted.hpp"
 #include "request.hpp"
 #include "request_handler.hpp"
@@ -30,12 +32,12 @@
 
 namespace cass {
 
-class Connection;
 class IOWorker;
 class RequestHandler;
 class Config;
 
-class Pool : public RefCounted<Pool> {
+class Pool : public RefCounted<Pool>
+           , public Connection::Listener {
 public:
   enum PoolState {
     POOL_STATE_NEW,
@@ -48,7 +50,7 @@ public:
   Pool(IOWorker* io_worker,
        const Address& address,
        bool is_initial_connection);
-  ~Pool();
+  virtual ~Pool();
 
   void connect();
   void close(bool cancel_reconnect = false);
@@ -63,7 +65,6 @@ public:
 
   bool is_initial_connection() const { return is_initial_connection_; }
   bool is_ready() const { return state_ == POOL_STATE_READY; }
-  bool is_defunct() const { return is_defunct_; }
   bool is_critical_failure() const { return is_critical_failure_; }
   bool cancel_reconnect() const { return cancel_reconnect_; }
 
@@ -80,10 +81,13 @@ private:
   void spawn_connection();
   void maybe_spawn_connection();
 
-  void on_connection_ready(Connection* connection);
-  void on_connection_closed(Connection* connection);
-  void on_connection_availability_changed(Connection* connection);
-  void on_pending_request_timeout(RequestTimer* timer);
+  // Connection listener methods
+  virtual void on_ready(Connection* connection);
+  virtual void on_close(Connection* connection);
+  virtual void on_availability_change(Connection* connection);
+  virtual void on_event(EventResponse* response) {}
+
+  static void on_pending_request_timeout(RequestTimer* timer);
 
   Connection* find_least_busy();
 
@@ -95,6 +99,7 @@ private:
   Address address_;
   uv_loop_t* loop_;
   const Config& config_;
+  Metrics* metrics_;
 
   PoolState state_;
   ConnectionVec connections_;
@@ -103,7 +108,6 @@ private:
   int available_connection_count_;
   bool is_available_;
   bool is_initial_connection_;
-  bool is_defunct_;
   bool is_critical_failure_;
   bool is_pending_flush_;
   bool cancel_reconnect_;

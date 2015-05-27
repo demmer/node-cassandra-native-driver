@@ -16,7 +16,10 @@
 
 #include "get_time.hpp"
 
-#if defined(WIN32) || defined(_WIN32)
+#if defined(_WIN32)
+#ifndef _WINSOCKAPI_
+#define _WINSOCKAPI_
+#endif
 #include <Windows.h>
 #elif defined(__APPLE__) && defined(__MACH__)
 #include <sys/time.h>
@@ -26,7 +29,7 @@
 
 namespace cass {
 
-#if defined(WIN32) || defined(_WIN32)
+#if defined(_WIN32)
 
 uint64_t get_time_since_epoch_ms() {
   _FILETIME ft;
@@ -43,7 +46,8 @@ uint64_t get_time_since_epoch_ms() {
 uint64_t get_time_since_epoch_ms() {
   struct timeval tv;
   gettimeofday(&tv, NULL);
-  return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  return static_cast<uint64_t>(tv.tv_sec)  * 1000 +
+         static_cast<uint64_t>(tv.tv_usec) / 1000;
 }
 
 #else
@@ -51,7 +55,8 @@ uint64_t get_time_since_epoch_ms() {
 uint64_t get_time_since_epoch_ms() {
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
-  return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+  return static_cast<uint64_t>(ts.tv_sec)  * 1000 +
+         static_cast<uint64_t>(ts.tv_nsec) / 1000000;
 }
 
 #endif

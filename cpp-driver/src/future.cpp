@@ -100,18 +100,18 @@ CassError cass_future_error_code(CassFuture* future) {
   }
 }
 
-CassString cass_future_error_message(CassFuture* future) {
-  CassString str;
+void cass_future_error_message(CassFuture* future,
+                               const char** message,
+                               size_t* message_length) {
   const cass::Future::Error* error = future->get_error();
   if (error != NULL) {
-    const std::string& message = error->message;
-    str.data = message.data();
-    str.length = message.size();
+    const std::string& m = error->message;
+    *message = m.data();
+    *message_length = m.length();
   } else {
-    str.data = "";
-    str.length = 0;
+    *message = "";
+    *message_length = 0;
   }
-  return str;
 }
 
 } // extern "C"
@@ -137,7 +137,7 @@ void Future::internal_set(ScopedMutex& lock) {
   is_set_ = true;
   uv_cond_broadcast(&cond_);
   if (callback_) {
-    if (loop_ == NULL) {
+    if (loop_.load() == NULL) {
       Callback callback = callback_;
       void* data = data_;
       lock.unlock();
@@ -151,7 +151,7 @@ void Future::internal_set(ScopedMutex& lock) {
 void Future::run_callback_on_work_thread() {
   inc_ref(); // Keep the future alive for the callback
   work_.data = this;
-  uv_queue_work(loop_, &work_, on_work, on_after_work);
+  uv_queue_work(loop_.load(), &work_, on_work, on_after_work);
 }
 
 void Future::on_work(uv_work_t* work) {

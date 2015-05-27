@@ -25,8 +25,6 @@
 #include "timer.hpp"
 #include "types.hpp"
 
-#include <boost/bind.hpp>
-
 extern "C" {
 
 CassSession* cass_session_new() {
@@ -51,9 +49,19 @@ CassFuture* cass_session_connect(CassSession* session, const CassCluster* cluste
 CassFuture* cass_session_connect_keyspace(CassSession* session,
                                           const CassCluster* cluster,
                                           const char* keyspace) {
+  return cass_session_connect_keyspace_n(session,
+                                         cluster,
+                                         keyspace,
+                                         strlen(keyspace));
+}
+
+CassFuture* cass_session_connect_keyspace_n(CassSession* session,
+                                            const CassCluster* cluster,
+                                            const char* keyspace,
+                                            size_t keyspace_length) {
   cass::SessionFuture* connect_future = new cass::SessionFuture();
   connect_future->inc_ref();
-  session->connect_async(cluster->config(), std::string(keyspace), connect_future);
+  session->connect_async(cluster->config(), std::string(keyspace, keyspace_length), connect_future);
   return CassFuture::to(connect_future);
 }
 
@@ -64,8 +72,14 @@ CassFuture* cass_session_close(CassSession* session) {
   return CassFuture::to(close_future);
 }
 
-CassFuture* cass_session_prepare(CassSession* session, CassString query) {
-  return CassFuture::to(session->prepare(query.data, query.length));
+CassFuture* cass_session_prepare(CassSession* session, const char* query) {
+  return cass_session_prepare_n(session, query, strlen(query));
+}
+
+CassFuture* cass_session_prepare_n(CassSession* session,
+                                   const char* query,
+                                   size_t query_length) {
+  return CassFuture::to(session->prepare(query, query_length));
 }
 
 CassFuture* cass_session_execute(CassSession* session,
@@ -81,6 +95,40 @@ const CassSchema* cass_session_get_schema(CassSession* session) {
   return CassSchema::to(session->copy_schema());
 }
 
+void  cass_session_get_metrics(CassSession* session,
+                               CassMetrics* metrics) {
+  const cass::Metrics* internal_metrics = session->metrics();
+
+  cass::Metrics::Histogram::Snapshot requests_snapshot;
+  internal_metrics->request_latencies.get_snapshot(&requests_snapshot);
+
+  metrics->requests.min = requests_snapshot.min;
+  metrics->requests.max = requests_snapshot.max;
+  metrics->requests.mean = requests_snapshot.mean;
+  metrics->requests.stddev = requests_snapshot.stddev;
+  metrics->requests.median = requests_snapshot.median;
+  metrics->requests.percentile_75th = requests_snapshot.percentile_75th;
+  metrics->requests.percentile_95th = requests_snapshot.percentile_95th;
+  metrics->requests.percentile_98th = requests_snapshot.percentile_98th;
+  metrics->requests.percentile_99th = requests_snapshot.percentile_99th;
+  metrics->requests.percentile_999th = requests_snapshot.percentile_999th;
+
+  metrics->requests.one_minute_rate = internal_metrics->request_rates.one_minute_rate();
+  metrics->requests.five_minute_rate = internal_metrics->request_rates.five_minute_rate();
+  metrics->requests.fifteen_minute_rate = internal_metrics->request_rates.fifteen_minute_rate();
+  metrics->requests.mean_rate = internal_metrics->request_rates.mean_rate();
+
+
+  metrics->stats.total_connections = internal_metrics->total_connections.sum();
+  metrics->stats.available_connections = internal_metrics->available_connections.sum();
+  metrics->stats.exceeded_write_bytes_water_mark = internal_metrics->exceeded_write_bytes_water_mark.sum();
+  metrics->stats.exceeded_pending_requests_water_mark = internal_metrics->exceeded_pending_requests_water_mark.sum();
+
+  metrics->errors.connection_timeouts = internal_metrics->connection_timeouts.sum();
+  metrics->errors.pending_request_timeouts = internal_metrics->pending_request_timeouts.sum();
+  metrics->errors.request_timeouts = internal_metrics->request_timeouts.sum();
+}
+
 } // extern "C"
 
 namespace cass {
@@ -93,19 +141,25 @@ Session::Session()
     , pending_workers_count_(0)
     , current_io_worker_(0) {
   uv_mutex_init(&state_mutex_);
+  uv_mutex_init(&hosts_mutex_);
 }
 
 Session::~Session() {
   join();
   uv_mutex_destroy(&state_mutex_);
+  uv_mutex_destroy(&hosts_mutex_);
 }
 
 void Session::clear(const Config& config) {
   config_ = config;
+  metrics_.reset(new Metrics(config_.thread_count_io() + 1));
   load_balancing_policy_.reset(config.load_balancing_policy());
   connect_future_.reset();
   close_future_.reset();
-  hosts_.clear();
+  { // Lock hosts
+    ScopedMutex l(&hosts_mutex_);
+    hosts_.clear();
+  }
   io_workers_.clear();
   request_queue_.reset();
   cluster_meta_.clear();
@@ -131,6 +185,7 @@ int Session::init() {
     if (rc != 0) return rc;
     io_workers_.push_back(io_worker);
   }
+
   return rc;
 }
 
@@ -146,27 +201,28 @@ void Session::broadcast_keyspace_change(const std::string& keyspace,
   }
 }
 
-SharedRefPtr<Host> Session::get_host(const Address& address, bool should_mark) {
+SharedRefPtr<Host> Session::get_host(const Address& address) {
+  // Lock hosts. This can be called on a non-session thread.
+  ScopedMutex l(&hosts_mutex_);
   HostMap::iterator it = hosts_.find(address);
   if (it == hosts_.end()) {
     return SharedRefPtr<Host>();
   }
-  if (should_mark) {
-    it->second->set_mark(current_host_mark_);
-  }
   return it->second;
 }
 
-SharedRefPtr<Host> Session::add_host(const Address& address, bool should_mark) {
+SharedRefPtr<Host> Session::add_host(const Address& address) {
   LOG_DEBUG("Adding new host: %s", address.to_string().c_str());
-
-  bool mark = should_mark ? current_host_mark_ : !current_host_mark_;
-  SharedRefPtr<Host> host(new Host(address, mark));
-  hosts_[address] = host;
+  SharedRefPtr<Host> host(new Host(address, !current_host_mark_));
+  { // Lock hosts
+    ScopedMutex l(&hosts_mutex_);
+    hosts_[address] = host;
+  }
   return host;
 }
 
 void Session::purge_hosts(bool is_initial_connection) {
+  // Hosts lock not held for reading (only called on session thread)
   HostMap::iterator it = hosts_.begin();
   while (it != hosts_.end()) {
     if (it->second->mark() != current_host_mark_) {
@@ -175,7 +231,10 @@ void Session::purge_hosts(bool is_initial_connection) {
       std::string address_str = to_remove_it->first.to_string();
       if (is_initial_connection) {
         LOG_WARN("Unable to reach contact point %s", address_str.c_str());
-        hosts_.erase(to_remove_it);
+        { // Lock hosts
+          ScopedMutex l(&hosts_mutex_);
+          hosts_.erase(to_remove_it);
+        }
       } else {
         LOG_WARN("Host %s removed", address_str.c_str());
         on_remove(to_remove_it->second);
@@ -274,7 +333,7 @@ void Session::close_async(Future* future, bool force) {
 }
 
 void Session::internal_connect() {
-  if (hosts_.empty()) {
+  if (hosts_.empty()) { // No hosts lock necessary (only called on session thread)
     notify_connect_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE,
                          "No hosts provided or no hosts resolved");
     return;
@@ -321,6 +380,7 @@ void Session::notify_closed() {
 void Session::close_handles() {
   EventThread<SessionEvent>::close_handles();
   request_queue_->close_handles();
+  load_balancing_policy_->close_handles();
 }
 
 void Session::on_run() {
@@ -353,7 +413,7 @@ void Session::on_event(const SessionEvent& event) {
         const std::string& seed = *it;
         Address address;
         if (Address::from_string(seed, port, &address)) {
-          hosts_[address] = SharedRefPtr<Host>(new Host(address, !current_host_mark_));
+          add_host(address);
         } else {
           pending_resolve_count_++;
           Resolver::resolve(loop(), seed, port, this, on_resolve);
@@ -402,9 +462,7 @@ void Session::on_event(const SessionEvent& event) {
 void Session::on_resolve(Resolver* resolver) {
   Session* session = static_cast<Session*>(resolver->data());
   if (resolver->is_success()) {
-    const Address& address = resolver->address();
-    session->hosts_[address]
-        = SharedRefPtr<Host>(new Host(address, !session->current_host_mark_));
+    session->add_host(resolver->address());
   } else {
     LOG_ERROR("Unable to resolve host %s:%d\n",
               resolver->host().c_str(), resolver->port());
@@ -422,7 +480,9 @@ void Session::execute(RequestHandler* request_handler) {
 }
 
 void Session::on_control_connection_ready() {
+  // No hosts lock necessary (only called on session thread and read-only)
   load_balancing_policy_->init(control_connection_.connected_host(), hosts_);
+  load_balancing_policy_->register_handles(loop());
   for (IOWorkerVec::iterator it = io_workers_.begin(),
        end = io_workers_.end(); it != end; ++it) {
     (*it)->set_protocol_version(control_connection_.protocol_version());
@@ -478,8 +538,10 @@ void Session::on_add(SharedRefPtr<Host> host, bool is_initial_connection) {
 
 void Session::on_remove(SharedRefPtr<Host> host) {
   load_balancing_policy_->on_remove(host);
-
-  hosts_.erase(host->address());
+  { // Lock hosts
+    ScopedMutex l(&hosts_mutex_);
+    hosts_.erase(host->address());
+  }
   for (IOWorkerVec::iterator it = io_workers_.begin(),
        end = io_workers_.end(); it != end; ++it) {
     (*it)->remove_pool_async(host->address(), true);
@@ -539,10 +601,8 @@ void Session::on_execute(uv_async_t* data) {
   bool is_closing = false;
 
   RequestHandler* request_handler = NULL;
-
   while (session->request_queue_->dequeue(request_handler)) {
     if (request_handler != NULL) {
-      size_t hosts_tried = 0, ioworkers_unavailable = 0, ioworkers_blocked = 0;
       request_handler->set_query_plan(session->new_query_plan(request_handler->request()));
 
       bool is_done = false;
@@ -551,34 +611,21 @@ void Session::on_execute(uv_async_t* data) {
 
         Address address;
         if (!request_handler->get_current_host_address(&address)) {
-          char msg[1024];
-          snprintf(msg, sizeof(msg), "Session: No hosts available "
-                  "(tried %zu/%zu host(s), %zu ioworker(s): %zu unavailable, %zu full queue)",
-                  hosts_tried, session->hosts_.size(), session->io_workers_.size(),
-                  ioworkers_unavailable, ioworkers_blocked);
-          request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE, msg);
+          request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE,
+                                    "All connections on all I/O threads are busy");
           break;
         }
-
-        hosts_tried++;
 
         size_t start = session->current_io_worker_;
         for (size_t i = 0, size = session->io_workers_.size(); i < size; ++i) {
           const SharedRefPtr<IOWorker>& io_worker = session->io_workers_[start % size];
-          if (! io_worker->is_host_available(address)) {
-            ioworkers_unavailable++;
-            start++;
-            continue;
+          if (io_worker->is_host_available(address) &&
+              io_worker->execute(request_handler)) {
+            session->current_io_worker_ = (start + 1) % size;
+            is_done = true;
+            break;
           }
-
-          if (! io_worker->execute(request_handler)) {
-            ioworkers_blocked++;
-            start++;
-            continue;
-          }
-
-          session->current_io_worker_ = (start + 1) % size;
-          is_done = true;
+          start++;
         }
       }
     } else {

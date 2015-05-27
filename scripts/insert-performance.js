@@ -1,5 +1,5 @@
 var Promise = require('bluebird');
-var TestClient = require('./test-client');
+var TestClient = require('../test/test-client');
 var expect = require('chai').expect;
 var ks = 'prepared_test';
 var table = 'test';
@@ -116,6 +116,9 @@ client.connect({address: '127.0.0.1'})
             }
         }
     });
+})
+.then(function() {
+    console.log(client.client.metrics())
 })
 .catch(function(err) {
     console.error(err.stack);

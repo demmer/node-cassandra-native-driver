@@ -25,6 +25,7 @@
 #include "host.hpp"
 #include "io_worker.hpp"
 #include "load_balancing.hpp"
+#include "metrics.hpp"
 #include "mpmc_queue.hpp"
 #include "ref_counted.hpp"
 #include "row.hpp"
@@ -77,6 +78,7 @@ public:
   ~Session();
 
   const Config& config() const { return config_; }
+  Metrics* metrics() const { return metrics_.get(); }
 
   void set_load_balancing_policy(LoadBalancingPolicy* policy) {
     load_balancing_policy_.reset(policy);
@@ -85,9 +87,7 @@ public:
   void broadcast_keyspace_change(const std::string& keyspace,
                                  const IOWorker* calling_io_worker);
 
-  SharedRefPtr<Host> get_host(const Address& address, bool should_mark = false);
-  SharedRefPtr<Host> add_host(const Address& address, bool should_mark = false);
-  void purge_hosts(bool is_initial_connection);
+  SharedRefPtr<Host> get_host(const Address& address);
 
   bool notify_ready_async();
   bool notify_worker_closed_async();
@@ -134,7 +134,11 @@ private:
   void on_reconnect(Timer* timer);
 
 private:
+  // TODO(mpenick): Consider removing friend access to session
   friend class ControlConnection;
+
+  SharedRefPtr<Host> add_host(const Address& address);
+  void purge_hosts(bool is_initial_connection);
 
   ClusterMetadata& cluster_meta() {
     return cluster_meta_;
@@ -153,11 +157,16 @@ private:
 
   State state_;
   uv_mutex_t state_mutex_;
+
   Config config_;
+  ScopedPtr<Metrics> metrics_;
   ScopedRefPtr<LoadBalancingPolicy> load_balancing_policy_;
   ScopedRefPtr<Future> connect_future_;
   ScopedRefPtr<Future> close_future_;
+
   HostMap hosts_;
+  uv_mutex_t hosts_mutex_;
+
   IOWorkerVec io_workers_;
   ScopedPtr<AsyncQueue<MPMCQueue<RequestHandler*> > > request_queue_;
   ClusterMetadata cluster_meta_;

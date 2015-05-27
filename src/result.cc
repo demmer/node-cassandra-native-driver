@@ -1,6 +1,7 @@
 #include <cassandra.h>
 
 #include "result.h"
+#include "error-callback.h"
 #include "persistent-string.h"
 #include "type-mapper.h"
 
@@ -28,13 +29,7 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
-        CassString error = cass_future_error_message(future);
-        std::string error_str = std::string(error.data, error.length);
-
-        Handle<Value> argv[] = {
-            NanError(error_str.c_str())
-        };
-        callback->Call(1, argv);
+        error_callback(future, callback);
         return;
     }
 
@@ -55,9 +50,11 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
     size_t num_columns = cass_result_column_count(result_);
     if (column_info_.size() == 0) {
         for (size_t i = 0; i < num_columns; ++i) {
-            CassString name = cass_result_column_name(result_, i);
+            const char* name;
+            size_t name_length;
+            cass_result_column_name(result_, i, &name, &name_length);
             CassValueType type = cass_result_column_type(result_, i);
-            column_info_.push_back(Column(name, type));
+            column_info_.push_back(Column(name, name_length, type));
         }
     }
 

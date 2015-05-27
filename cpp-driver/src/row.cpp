@@ -18,11 +18,12 @@
 
 #include "result_metadata.hpp"
 #include "result_response.hpp"
+#include "string_ref.hpp"
 #include "types.hpp"
 
 extern "C" {
 
-const CassValue* cass_row_get_column(const CassRow* row, cass_size_t index) {
+const CassValue* cass_row_get_column(const CassRow* row, size_t index) {
   if (index >= row->values.size()) {
     return NULL;
   }
@@ -32,7 +33,14 @@ const CassValue* cass_row_get_column(const CassRow* row, cass_size_t index) {
 const CassValue* cass_row_get_column_by_name(const CassRow* row,
                                              const char* name) {
 
-  return CassValue::to(row->get_by_name(name));
+  return cass_row_get_column_by_name_n(row, name, strlen(name));
+}
+
+const CassValue* cass_row_get_column_by_name_n(const CassRow* row,
+                                               const char* name,
+                                               size_t name_length) {
+
+  return CassValue::to(row->get_by_name(cass::StringRef(name, name_length)));
 }
 
 } // extern "C"
@@ -67,7 +75,7 @@ char* decode_row(char* rows, const ResultResponse* result, ValueVec& output) {
   return buffer;
 }
 
-const Value* Row::get_by_name(const boost::string_ref& name) const {
+const Value* Row::get_by_name(const StringRef& name) const {
   cass::ResultMetadata::IndexVec indices;
   if (result_->find_column_indices(name, &indices) == 0) {
     return NULL;
@@ -75,7 +83,7 @@ const Value* Row::get_by_name(const boost::string_ref& name) const {
   return &values[indices[0]];
 }
 
-bool Row::get_string_by_name(const boost::string_ref& name, std::string* out) const {
+bool Row::get_string_by_name(const StringRef& name, std::string* out) const {
   const Value* value = get_by_name(name);
   if (value == NULL ||
       value->buffer().size() < 0) {

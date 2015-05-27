@@ -26,14 +26,9 @@
 #include <set>
 #include <string>
 
-extern "C" {
+#include <uv.h>
 
-typedef struct CassHost_ {
-  CassInet address;
-  CassString rack;
-  CassString datacenter;
-  CassString version;
-} CassHost;
+extern "C" {
 
 typedef enum CassBalancingState_ {
   CASS_BALANCING_INIT,
@@ -86,6 +81,9 @@ public:
   virtual ~LoadBalancingPolicy() {}
 
   virtual void init(const SharedRefPtr<Host>& connected_host, const HostMap& hosts) = 0;
+
+  virtual void register_handles(uv_loop_t* loop) {}
+  virtual void close_handles() {}
 
   virtual CassHostDistance distance(const SharedRefPtr<Host>& host) const = 0;
 
