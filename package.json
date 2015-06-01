@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": "https://github.com/jut-io/node-cassandra-native-driver",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "author": "Michael Demmer <demmer@jut.io>",
   "license": "MIT",
