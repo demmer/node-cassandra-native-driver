@@ -37,7 +37,7 @@ void Client::Init() {
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
     NODE_SET_PROTOTYPE_METHOD(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "metrics", WRAPPED_METHOD_NAME(Metrics));
+    NODE_SET_PROTOTYPE_METHOD(tpl, "metrics", WRAPPED_METHOD_NAME(GetMetrics));
 
     NanAssignPersistent(constructor, tpl->GetFunction());
 }
@@ -229,7 +229,7 @@ WRAPPED_METHOD(Client, NewBatch) {
     NanReturnValue(val);
 }
 
-WRAPPED_METHOD(Client, Metrics) {
+WRAPPED_METHOD(Client, GetMetrics) {
     NanScope();
 
     bool reset = false;
