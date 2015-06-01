@@ -12,7 +12,7 @@ public:
     void clear();
 
     // Retrieve the current metrics as a v8 object
-    v8::Local<v8::Object> get();
+    void get(v8::Local<v8::Object> metrics);
 
     // Increment the counter(s) for a new request;
     void start_request();
@@ -53,13 +53,9 @@ Metrics::stop_request()
     response_count_++;
 }
 
-inline v8::Local<v8::Object>
-Metrics::get()
+inline void
+Metrics::get(v8::Local<v8::Object> metrics)
 {
-    NanEscapableScope();
-
-    v8::Local<v8::Object> metrics = NanNew<v8::Object>();
-
 #define GET(x) \
     static PersistentString x##str(#x); \
     metrics->Set(x##str, NanNew(x##_));
@@ -71,8 +67,6 @@ Metrics::get()
     GET(response_queue_drain_time_max);
 
 #undef GET
-
-    NanReturnValue(metrics);
 }
 
 #endif

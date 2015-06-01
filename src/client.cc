@@ -237,7 +237,8 @@ WRAPPED_METHOD(Client, GetMetrics) {
         reset = args[0]->IsTrue();
     }
 
-    Local<Object> metrics = metrics_.get();
+    v8::Local<v8::Object> metrics = NanNew<v8::Object>();
+    metrics_.get(metrics);
     if (reset) {
         metrics_.clear();
     }
