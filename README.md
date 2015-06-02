@@ -1,5 +1,4 @@
-node-cassandra-native-driver
-============================
+# node-cassandra-native-driver [![Build Status: Linux](https://travis-ci.org/jut-io/node-cassandra-native-driver.png?branch=master)](https://travis-ci.org/jut-io/node-cassandra-native-driver)
 
 Node.js addon that wraps the [DataStax C++ cassandra driver](https://github.com/datastax/cpp-driver).
 
