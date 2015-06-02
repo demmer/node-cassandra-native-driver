@@ -100,10 +100,16 @@ describe('session request limits', function() {
         return query(opts)
         .spread(function(result, stats) {
             var errs = _.uniq(_.pluck(_.where(result, {success: false}), 'result')).sort();
-            expect(errs.length).equal(2);
-            console.log(errs);
-            expect(errs[0]).equals("All connections on all I/O threads are busy");
-            expect(errs[1]).equals("The request queue has reached capacity");
+            console.log('ERRORS:')
+            console.log(errs.join('\n'));
+            console.log('STATS:');
+            console.log(JSON.stringify(stats, null, 4));
+            expect(errs.length).at.least(1);
+
+            var expected_errs = ["All connections on all I/O threads are busy",
+                                 "All hosts in current policy attempted and were either unavailable or failed",
+                                 "The request queue has reached capacity"];
+            expect(expected_errs).to.include.members(errs);
         });
     });
 
@@ -118,9 +124,15 @@ describe('session request limits', function() {
         return query(opts)
         .spread(function(result, stats) {
             var errs = _.uniq(_.pluck(_.where(result, {success: false}), 'result'));
-            expect(errs.length).equal(1);
-            expect(errs[0]).equals("All connections on all I/O threads are busy");
+            console.log('ERRORS:')
+            console.log(errs.join('\n'));
+            console.log('STATS:');
+            console.log(JSON.stringify(stats, null, 4));
             expect(stats.exceeded_pending_requests_limit).greaterThan(0);
+            expect(errs.length).at.least(1);
+            var expected_errs = ["All connections on all I/O threads are busy",
+                                 "All hosts in current policy attempted and were either unavailable or failed"];
+            expect(expected_errs).to.include.members(errs);
         });
     });
 });
