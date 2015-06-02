@@ -23,7 +23,7 @@ describe('log callback', function() {
         return c.connectAsync({address: '127.0.0.1', port: 9999})
         .catch(function(err) {
             expect(err.message).equal('No hosts available for the control connection');
-            return Promise.delay(1); // return to the event loop
+            return Promise.delay(500); // return to the event loop
         })
         .then(function() {
             expect(messages.length).equal(3);
