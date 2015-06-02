@@ -53,7 +53,11 @@ AsyncFuture::future_ready(CassFuture* future, Pending* pending)
 }
 
 void
+#if UV_VERSION_MAJOR == 0
 AsyncFuture::on_async_ready(uv_async_t* handle, int status)
+#else
+AsyncFuture::on_async_ready(uv_async_t* handle)
+#endif
 {
     AsyncFuture* self = (AsyncFuture*)handle->data;
     self->async_ready();
