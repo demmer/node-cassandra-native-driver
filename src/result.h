@@ -29,7 +29,7 @@ private:
         v8::Persistent<v8::String> name_;
         CassValueType type_;
     };
-    typedef std::vector<Column> ColumnInfo;
+    typedef std::vector<Column*> ColumnInfo;
 
     ColumnInfo column_info_;
     const CassResult* result_;
