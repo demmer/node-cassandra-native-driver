@@ -31,7 +31,7 @@ void Batch::Init() {
 Local<Object> Batch::NewInstance(const Local<String>& type) {
     NanEscapableScope();
 
-    String::AsciiValue type_str(type);
+    String::Utf8Value type_str(type);
 
     const unsigned argc = 1;
     Local<Value> argv[argc] = {type};
@@ -44,7 +44,7 @@ Local<Object> Batch::NewInstance(const Local<String>& type) {
 NAN_METHOD(Batch::New) {
     NanEscapableScope();
 
-    String::AsciiValue type_str(args[0].As<String>());
+    String::Utf8Value type_str(args[0].As<String>());
 
     CassBatchType type;
     if (!strcasecmp(*type_str, "logged")) {
@@ -78,10 +78,10 @@ Batch::~Batch()
 }
 
 void
-Batch::set_client(const Local<Object>& client)
+Batch::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    handle_->Set(client_str, client);
+    NanObjectWrapHandle(this)->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();

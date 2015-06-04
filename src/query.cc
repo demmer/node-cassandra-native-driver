@@ -72,10 +72,10 @@ Query::~Query()
 }
 
 void
-Query::set_client(const Local<Object>& client)
+Query::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    handle_->Set(client_str, client);
+    NanObjectWrapHandle(this)->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
@@ -114,9 +114,9 @@ WRAPPED_METHOD(Query, Parse)
 
     // Stash the query so the client library can check it later.
     static PersistentString query_key("query");
-    handle_->Set(query_key, query);
+    NanObjectWrapHandle(this)->Set(query_key, query);
 
-    String::AsciiValue query_str(query);
+    String::Utf8Value query_str(query);
     statement_ = cass_statement_new_n(*query_str, query_str.length(), num_params);
 
     return bind(params, options);

@@ -24,7 +24,7 @@ public:
 
     // Stash the reference to the parent client object and extract the pointer
     // to the session.
-    void set_client(v8::Local<v8::Object>& client);
+    void set_client(v8::Local<v8::Object> client);
 
     // Return a new cassandra prepared statement
     CassStatement* prepare_statement()
