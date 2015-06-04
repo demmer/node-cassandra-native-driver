@@ -8,7 +8,6 @@
         "sources": [
         "src/async-future.cc",
         "src/batch.cc",
-        "src/buffer-pool.cc",
         "src/cassandra-driver.cc",
         "src/client.cc",
         "src/logging.cc",

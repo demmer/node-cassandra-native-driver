@@ -5,7 +5,6 @@
 #include "node.h"
 #include "nan.h"
 #include "wrapped-method.h"
-#include "buffer-pool.h"
 #include "async-future.h"
 #include "metrics.h"
 

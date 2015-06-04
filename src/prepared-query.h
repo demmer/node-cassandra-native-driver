@@ -3,7 +3,6 @@
 
 #include "node.h"
 #include "nan.h"
-#include "buffer-pool.h"
 #include "wrapped-method.h"
 #include <vector>
 
