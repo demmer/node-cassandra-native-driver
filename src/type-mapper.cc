@@ -193,7 +193,7 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
 
 bool
 TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
-                         const CassValue* value, BufferPool* pool)
+                         const CassValue* value)
 {
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
@@ -202,7 +202,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         if (cass_value_get_bytes(value, &data, &size) != CASS_OK) {
             return false;
         }
-        *result = pool->allocate(data, size);
+        *result = NanNewBufferHandle((const char*)data, size);
         return true;
     }
     case CASS_VALUE_TYPE_VARCHAR: {
@@ -256,7 +256,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
             const CassValue* key = cass_iterator_get_map_key(iterator);
             const CassValue* val = cass_iterator_get_map_value(iterator);
             Local<Value> a, b;
-            if (!v8_from_cassandra(&a, keyType, key, pool) || !v8_from_cassandra(&b, valueType, val, pool)) {
+            if (!v8_from_cassandra(&a, keyType, key) || !v8_from_cassandra(&b, valueType, val)) {
                 return false;
             }
             obj->Set(a, b);

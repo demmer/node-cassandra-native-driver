@@ -4,8 +4,18 @@
   },
   "targets": [
     {
-      "target_name": "cassandra-native-driver",
-      "sources": [
+        "target_name": "cassandra-native-driver",
+        "sources": [
+        "src/async-future.cc",
+        "src/batch.cc",
+        "src/cassandra-driver.cc",
+        "src/client.cc",
+        "src/logging.cc",
+        "src/prepared-query.cc",
+        "src/result.cc",
+        "src/query.cc",
+        "src/type-mapper.cc",
+
         "cpp-driver/src/address.cpp",
         "cpp-driver/src/auth.cpp",
         "cpp-driver/src/auth_requests.cpp",
@@ -64,17 +74,7 @@
         "cpp-driver/src/types.cpp",
         "cpp-driver/src/uuids.cpp",
         "cpp-driver/src/value.cpp",
-        "cpp-driver/src/third_party/hdr_histogram/hdr_histogram.cpp",
-        "src/async-future.cc",
-        "src/batch.cc",
-        "src/buffer-pool.cc",
-        "src/cassandra-driver.cc",
-        "src/client.cc",
-        "src/logging.cc",
-        "src/prepared-query.cc",
-        "src/result.cc",
-        "src/query.cc",
-        "src/type-mapper.cc"
+        "cpp-driver/src/third_party/hdr_histogram/hdr_histogram.cpp"
       ],
       "include_dirs": [
             "<!(node -e \"require('nan')\")",

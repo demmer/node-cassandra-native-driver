@@ -3,7 +3,6 @@
 
 #include "cassandra.h"
 #include "nan.h"
-#include "buffer-pool.h"
 #include <vector>
 
 using namespace v8;
@@ -29,12 +28,10 @@ private:
         v8::Persistent<v8::String> name_;
         CassValueType type_;
     };
-    typedef std::vector<Column> ColumnInfo;
+    typedef std::vector<Column*> ColumnInfo;
 
     ColumnInfo column_info_;
     const CassResult* result_;
-
-    BufferPool buffer_pool_;
 };
 
 #endif

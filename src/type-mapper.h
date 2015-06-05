@@ -3,7 +3,6 @@
 
 #include <nan.h>
 #include "cassandra.h"
-#include "buffer-pool.h"
 
 class TypeMapper {
 public:
@@ -27,7 +26,7 @@ public:
     // Get a Javascript result value for the given CassValue of the given type.
     // Will use inference if type is CASS_VALUE_UNKNOWN.
     static bool v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
-                             const CassValue* value, BufferPool* pool);
+                             const CassValue* value);
 };
 
 #endif

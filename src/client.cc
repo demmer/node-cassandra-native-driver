@@ -80,7 +80,7 @@ Client::configure(v8::Local<v8::Object> opts)
     for (uint32_t i = 0; i < length; ++i)
     {
         const Local<Value> key = props->Get(i);
-        const String::AsciiValue key_str(key);
+        const v8::String::Utf8Value key_str(key);
         unsigned value = opts->Get(key)->Int32Value();
 
 #define SET(_var) \
@@ -138,7 +138,7 @@ WRAPPED_METHOD(Client, Connect) {
     int port;
 
     if (options->Has(address_str)) {
-        String::AsciiValue address(options->Get(address_str).As<String>());
+        String::Utf8Value address(options->Get(address_str).As<String>());
         cass_cluster_set_contact_points(cluster_, *address);
     } else {
         return NanThrowError("connect requires a address");
@@ -191,9 +191,7 @@ WRAPPED_METHOD(Client, NewQuery) {
     Local<Value> val = Query::NewInstance();
 
     Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
-
-    Local<Object> self = Local<Object>::New(handle_);
-    query->set_client(self);
+    query->set_client(NanObjectWrapHandle(this));
 
     NanReturnValue(val);
 }
@@ -203,9 +201,7 @@ WRAPPED_METHOD(Client, NewPreparedQuery) {
     Local<Value> val = PreparedQuery::NewInstance();
 
     PreparedQuery* query = node::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
-
-    Local<Object> self = Local<Object>::New(handle_);
-    query->set_client(self);
+    query->set_client(NanObjectWrapHandle(this));
 
     NanReturnValue(val);
 }
@@ -221,9 +217,7 @@ WRAPPED_METHOD(Client, NewBatch) {
     Local<Value> val = Batch::NewInstance(type);
     if (! val.IsEmpty()) {
         Batch* batch = node::ObjectWrap::Unwrap<Batch>(val->ToObject());
-
-        Local<Object> self = Local<Object>::New(handle_);
-        batch->set_client(self);
+        batch->set_client(NanObjectWrapHandle(this));
     }
 
     NanReturnValue(val);
@@ -237,7 +231,8 @@ WRAPPED_METHOD(Client, GetMetrics) {
         reset = args[0]->IsTrue();
     }
 
-    Local<Object> metrics = metrics_.get();
+    v8::Local<v8::Object> metrics = NanNew<v8::Object>();
+    metrics_.get(metrics);
     if (reset) {
         metrics_.clear();
     }

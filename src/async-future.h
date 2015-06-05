@@ -40,6 +40,10 @@ private:
     void future_ready(CassFuture* future, Pending* pending);
 
     // Notification on the uv main thread when the async has been signaled
+#if UV_VERSION_MAJOR == 0
     static void on_async_ready(uv_async_t* handle, int status);
+#else
+    static void on_async_ready(uv_async_t* handle);
+#endif
     void async_ready();
 };

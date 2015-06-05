@@ -20,7 +20,11 @@ void on_log_message(const CassLogMessage* message, void* data)
 }
 
 void
+#if UV_VERSION_MAJOR == 0
 async_ready(uv_async_t* handle, int status)
+#else
+async_ready(uv_async_t* handle)
+#endif
 {
     uv_mutex_lock(&lock_);
 
@@ -78,7 +82,7 @@ NAN_METHOD(SetLogLevel) {
         return NanThrowError("missing required argument: level");
     }
 
-    String::AsciiValue level_str(args[0].As<String>());
+    String::Utf8Value level_str(args[0].As<String>());
 
     CassLogLevel level = CASS_LOG_DISABLED;
 

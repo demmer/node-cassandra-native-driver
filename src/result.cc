@@ -17,7 +17,8 @@ Result::~Result()
     }
 
     for (size_t i = 0; i < column_info_.size(); ++i) {
-        column_info_[i].name_.Dispose();
+        NanDisposePersistent(column_info_[i]->name_);
+        delete column_info_[i];
     }
     column_info_.empty();
 }
@@ -54,7 +55,7 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
             size_t name_length;
             cass_result_column_name(result_, i, &name, &name_length);
             CassValueType type = cass_result_column_type(result_, i);
-            column_info_.push_back(Column(name, name_length, type));
+            column_info_.push_back(new Column(name, name_length, type));
         }
     }
 
@@ -65,10 +66,9 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
         for (size_t i = 0; i < num_columns; ++i) {
             Local<Value> result;
             const CassValue* value = cass_row_get_column(row, i);
-            if (TypeMapper::v8_from_cassandra(&result, column_info_[i].type_,
-                                              value, &buffer_pool_))
+            if (TypeMapper::v8_from_cassandra(&result, column_info_[i]->type_, value))
             {
-                element->Set(column_info_[i].name_, result);
+                element->Set(NanNew(column_info_[i]->name_), result);
             }
             else
             {

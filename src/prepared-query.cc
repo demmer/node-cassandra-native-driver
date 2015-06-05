@@ -61,10 +61,10 @@ PreparedQuery::~PreparedQuery()
 }
 
 void
-PreparedQuery::set_client(Local<Object>& client)
+PreparedQuery::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    handle_->Set(client_str, client);
+    NanObjectWrapHandle(this)->Set(client_str, client);
 
     Client* c = node::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
@@ -83,7 +83,7 @@ WRAPPED_METHOD(PreparedQuery, Prepare)
     Local<String> query = args[0].As<String>();
     NanCallback* callback = new NanCallback(args[1].As<Function>());
 
-    String::AsciiValue query_str(query);
+    String::Utf8Value query_str(query);
     CassFuture* future = cass_session_prepare_n(session_, *query_str, query_str.length());
     metrics_->start_request();
     async_->schedule(on_prepared_ready, future, this, callback);
@@ -114,7 +114,7 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 
         Handle<Value> argv[] = {
             NanNull(),
-            handle_
+            NanObjectWrapHandle(this)
         };
         callback->Call(2, argv);
     }
@@ -137,7 +137,7 @@ WRAPPED_METHOD(PreparedQuery, GetQuery)
     Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
 
     static PersistentString client_str("client");
-    query->set_client(handle_->Get(client_str).As<Object>());
+    query->set_client(NanObjectWrapHandle(this)->Get(client_str).As<Object>());
 
     query->set_prepared_statement(prepare_statement());
 
