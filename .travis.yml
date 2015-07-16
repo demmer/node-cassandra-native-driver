@@ -6,3 +6,6 @@ before_script:
   - npm install -g grunt-cli node-gyp mocha
 services:
   - cassandra
+os:
+  - linux
+  - osx
