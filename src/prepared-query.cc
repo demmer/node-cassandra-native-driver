@@ -93,7 +93,6 @@ WRAPPED_METHOD(PreparedQuery, Prepare)
     NanReturnUndefined();
 }
 
-// Callback on the I/O thread when a result is ready from cassandra
 void
 PreparedQuery::on_prepared_ready(CassFuture* future, void* client, void* data)
 {
@@ -105,6 +104,8 @@ PreparedQuery::on_prepared_ready(CassFuture* future, void* client, void* data)
 void
 PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 {
+    NanScope();
+
     metrics_->stop_request();
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
