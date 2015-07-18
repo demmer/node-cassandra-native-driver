@@ -21,6 +21,11 @@ var types = [
         code: types.CASS_VALUE_TYPE_DOUBLE
     },
     {
+        type: 'float',
+        value: 1.25,
+        code: types.CASS_VALUE_TYPE_FLOAT
+    },
+    {
         type: 'timestamp',
         value: 1423515666128,
         code: types.CASS_VALUE_TYPE_TIMESTAMP
@@ -31,9 +36,19 @@ var types = [
         code: types.CASS_VALUE_TYPE_BOOLEAN
     },
     {
-        type: 'varchar',
+        type: 'ascii',
         value: 'hello momma',
+        code: types.CASS_VALUE_TYPE_ASCII
+    },
+    {
+        type: 'varchar',
+        value: 'hello daddy',
         code: types.CASS_VALUE_TYPE_VARCHAR
+    },
+    {
+        type: 'text',
+        value: 'lorum ipsum',
+        code: types.CASS_VALUE_TYPE_TEXT
     },
     {
         type: 'blob',
