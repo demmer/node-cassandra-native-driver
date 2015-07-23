@@ -21,6 +21,11 @@ var types = [
         code: types.CASS_VALUE_TYPE_DOUBLE
     },
     {
+        type: 'float',
+        value: 1.25,
+        code: types.CASS_VALUE_TYPE_FLOAT
+    },
+    {
         type: 'timestamp',
         value: 1423515666128,
         code: types.CASS_VALUE_TYPE_TIMESTAMP
@@ -31,9 +36,19 @@ var types = [
         code: types.CASS_VALUE_TYPE_BOOLEAN
     },
     {
-        type: 'varchar',
+        type: 'ascii',
         value: 'hello momma',
+        code: types.CASS_VALUE_TYPE_ASCII
+    },
+    {
+        type: 'varchar',
+        value: 'hello daddy',
         code: types.CASS_VALUE_TYPE_VARCHAR
+    },
+    {
+        type: 'text',
+        value: 'lorum ipsum',
+        code: types.CASS_VALUE_TYPE_TEXT
     },
     {
         type: 'blob',
@@ -50,37 +65,27 @@ describe('hints', function() {
         return setup_environment(client);
     });
 
-    _.each(['insertRows', 'insertRowsPrepared', 'insertRowsPreparedBatch'], function(method, index) {
-        describe(method, function() {
-            var table, data;
-            it('creates the table', function() {
-                table = 'hint_test' + index;
+    _.each(types, function(t) {
+        describe('supports ' + t.type, function() {
+            var table = 'hint_test_' + t.type;
+            var fields = {key: 'varchar', data: t.type};
+            var hints = {data: t.code};
 
-                var fields = {key: 'varchar'};
-                _.each(types, function(t) {
-                    fields[t.type + '_field'] = t.type;
-                });
-
+            before(function() {
                 return client.createTable(table, fields, 'key');
             });
 
-            it('inserts some data', function() {
-                var hints = {};
-                data = {key: 'test_key'};
-
-                _.each(types, function(t) {
-                    hints[t.type + '_field'] = t.code;
-                    data[t.type + '_field'] = t.value;
-                });
-
-                return client[method](table, [data], {hints: hints, batch_size: 1});
-            });
-
-            it('queries the data', function() {
-                return client.execute('select * from ' + table + ' where key=?;', ['test_key'])
-                .then(function(results) {
-                    var res = results.rows;
-                    expect(res[0]).deep.equal(data);
+            _.each(['insertRows', 'insertRowsPrepared', 'insertRowsPreparedBatch'], function(method, index) {
+                var data = {key: 'test_key_' + method, data: t.value};
+                it('can add data with ' + method, function() {
+                    return client[method](table, [data], {hints: hints, batch_size: 1})
+                    .then(function() {
+                        return client.execute('select * from ' + table + ' where key=?;', [data.key])
+                    })
+                    .then(function(results) {
+                        var res = results.rows;
+                        expect(res[0]).deep.equal(data);
+                    });
                 });
             });
 

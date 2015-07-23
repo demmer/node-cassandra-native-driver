@@ -6,15 +6,20 @@ var test_utils = require('./test-utils');
 
 var client;
 var tests = {
+    ascii: ['ascii', 'text'],
+    text: ['text', 'ascii?'],
     varchar: ['foo', String.fromCharCode(160)],
     int: [123, 456],
     boolean: [true, false],
-    double: [1.23, 4.56],
+    double: [1.23, 4.56]
 };
 
 var maps = [{keyType: 'varchar', valueType: 'int', map: {a: 11, b: 2}},
             {keyType: 'varchar', valueType: 'varchar', map: {a: 'bananas', b: 'pajamas'}},
-            {keyType: 'varchar', valueType: 'double', map: {pi: 3.142, e: 2.718}}];
+            {keyType: 'varchar', valueType: 'ascii', map: {a: 'bananas', b: 'pajamas'}},
+            {keyType: 'varchar', valueType: 'text', map: {a: 'bananas', b: 'pajamas'}},
+            {keyType: 'varchar', valueType: 'double', map: {pi: 3.142, e: 2.718}}
+            ];
 
 describe('type inference', function() {
     before(function() {

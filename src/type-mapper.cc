@@ -48,7 +48,6 @@ TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params,
     return -1;
 }
 
-
 bool
 TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
                                 const Local<Value>& value, CassValueType given_type)
@@ -67,6 +66,11 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         cass_statement_bind_double(statement, i, doubleValue);
         return true;
     }
+    case CASS_VALUE_TYPE_FLOAT: {
+        cass_float_t floatValue = value->ToNumber()->NumberValue();
+        cass_statement_bind_float(statement, i, floatValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_LIST: {
         Local<Value> val = value;
         Local<Array> array = val.As<Array>();
@@ -80,6 +84,8 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         cass_collection_free(list);
         return true;
     }
+    case CASS_VALUE_TYPE_ASCII:
+    case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
         String::Utf8Value str(value->ToString());
         cass_statement_bind_string_n(statement, i, *str, str.length());
@@ -118,11 +124,8 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
     }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
-    case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
-    case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
@@ -162,11 +165,18 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         cass_collection_append_double(collection, doubleValue);
         return true;
     }
+    case CASS_VALUE_TYPE_FLOAT: {
+        cass_float_t floatValue = value->ToNumber()->NumberValue();
+        cass_collection_append_float(collection, floatValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_BOOLEAN: {
         cass_bool_t booleanValue = (value->BooleanValue() ? cass_true : cass_false);
         cass_collection_append_bool(collection, booleanValue);
         return true;
     }
+    case CASS_VALUE_TYPE_ASCII:
+    case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
         String::Utf8Value str(value->ToString());
         cass_collection_append_string_n(collection, *str, str.length());
@@ -174,18 +184,15 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
     }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
-    case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
-    case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_TEXT:
-    case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
-    case CASS_VALUE_TYPE_TIMEUUID:
     case CASS_VALUE_TYPE_INET:
     case CASS_VALUE_TYPE_LIST:
     case CASS_VALUE_TYPE_MAP:
     case CASS_VALUE_TYPE_SET:
+    case CASS_VALUE_TYPE_TIMEUUID:
+    case CASS_VALUE_TYPE_UUID:
     default:
         return false;
     }
@@ -205,6 +212,8 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         *result = NanNewBufferHandle((const char*)data, size);
         return true;
     }
+    case CASS_VALUE_TYPE_ASCII:
+    case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_VARCHAR: {
         const char* data;
         size_t size;
@@ -239,6 +248,14 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         *result = NanNew<Number>(doubleValue);
         return true;
     }
+    case CASS_VALUE_TYPE_FLOAT: {
+        cass_float_t floatValue;
+        if (cass_value_get_float(value, &floatValue) != CASS_OK) {
+            return false;
+        }
+        *result = NanNew<Number>(floatValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_BOOLEAN: {
         cass_bool_t booleanValue;
         if (cass_value_get_bool(value, &booleanValue) != CASS_OK) {
@@ -267,11 +284,8 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
     }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
-    case CASS_VALUE_TYPE_ASCII:
     case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
-    case CASS_VALUE_TYPE_FLOAT:
-    case CASS_VALUE_TYPE_TEXT:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
     case CASS_VALUE_TYPE_TIMEUUID:
