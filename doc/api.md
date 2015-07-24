@@ -92,7 +92,7 @@ Prepare the query for more efficient execution.
 * query: (required) CQL query string
 * callback: (required) callback function
 
-On completion, calls `callback(err, prepared)`, returning an instance of a [Prepared](#prepared) query.
+On completion, calls `callback(err, prepared)`. If there is no error then prepared contains an instance of a [Prepared](#prepared) query, otherwise `err` indicates the error.
 
 ## new_batch(type)
 
