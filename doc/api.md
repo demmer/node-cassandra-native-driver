@@ -45,7 +45,7 @@ Connect to the cluster specified by the given options and call the given callbac
 
 Execute the specified query.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 * callback: (required) callback function
@@ -65,7 +65,7 @@ If `fetchSize` was specified and the results were truncated, then `results.pageS
 
 Execute the specified query.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 * callback: (required) callback function
@@ -89,7 +89,7 @@ Returns an instance of a [Query](#query) object.
 
 Prepare the query for more efficient execution.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * callback: (required) callback function
 
 On completion, calls `callback(err, prepared)`, returning an instance of a [Prepared](#prepared) query.
@@ -116,7 +116,7 @@ Query is the underlying object exposed by the C++ node driver for executing quer
 
 Parse the given expression.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 
