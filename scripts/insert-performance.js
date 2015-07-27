@@ -58,7 +58,7 @@ var data = _.times(count, generate);
 
 var start, end;
 var client = new TestClient();
-client.connect({address: '127.0.0.1'})
+client.connect({contactPoints: '127.0.0.1'})
 .then(function() {
     return client.cleanKeyspace(ks);
 })

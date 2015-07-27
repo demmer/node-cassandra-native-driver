@@ -38,7 +38,7 @@ Options exposes a number of configuration options used to tune the connection to
 
 Connect to the cluster specified by the given options and call the given callback when completed.
 
-* address: (required) comma separated list of one or more addresses to connect to
+* contactPoints: (required) comma separated string containing addresses of one or more hosts in the cluster
 * port: port on which to make the connection
 
 ## execute(query, params, options, callback)
