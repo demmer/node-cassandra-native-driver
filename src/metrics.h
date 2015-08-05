@@ -58,7 +58,7 @@ Metrics::get(v8::Local<v8::Object> metrics)
 {
 #define GET(x) \
     static PersistentString x##str(#x); \
-    metrics->Set(x##str, NanNew(x##_));
+    Nan::Set(metrics, x##str, Nan::New(x##_));
 
     GET(request_count);
     GET(response_count);

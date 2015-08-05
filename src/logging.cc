@@ -9,7 +9,7 @@ using namespace v8;
 std::vector<CassLogMessage> queue_;
 uv_async_t* async_ = NULL;
 uv_mutex_t lock_;
-NanCallback* callback_;
+Nan::Callback* callback_;
 
 void on_log_message(const CassLogMessage* message, void* data)
 {
@@ -26,23 +26,23 @@ async_ready(uv_async_t* handle, int status)
 async_ready(uv_async_t* handle)
 #endif
 {
-    NanScope();
+    Nan::Scope scope;
     uv_mutex_lock(&lock_);
 
     for (size_t i = 0; i < queue_.size(); i++) {
         CassLogMessage* log = &queue_[i];
-        Local<Object> info = NanNew<Object>();
+        Local<Object> info = Nan::New<Object>();
 
         static PersistentString time_ms("time_ms");
         static PersistentString severity("severity");
         static PersistentString message("message");
 
-        info->Set(time_ms.handle(), NanNew<Number>(log->time_ms));
-        info->Set(severity.handle(), NanNew<String>(cass_log_level_string(log->severity)));
-        info->Set(message.handle(), NanNew<String>(log->message));
+        Nan::Set(info, time_ms.handle(), Nan::New<Number>(log->time_ms));
+        Nan::Set(info, severity.handle(), Nan::New<String>(cass_log_level_string(log->severity).ToLocalChecked()));
+        Nan::Set(info, message.handle(), Nan::New<String>(log->message).ToLocalChecked());
 
         Handle<Value> argv[] = {
-            NanNull(),
+            Nan::Null(),
             info
         };
         callback_->Call(2, argv);
@@ -53,18 +53,17 @@ async_ready(uv_async_t* handle)
 }
 
 NAN_METHOD(SetLogCallback) {
-    NanScope();
 
     if (callback_) {
-        return NanThrowError("callback already registered");
+        return Nan::ThrowError("callback already registered");
     }
 
-    if (args.Length() != 1) {
-        return NanThrowError("missing required argument: callback");
+    if (info.Length() != 1) {
+        return Nan::ThrowError("missing required argument: callback");
     }
-    callback_ = new NanCallback(args[0].As<Function>());
+    callback_ = new Nan::Callback(info[0].As<Function>());
     if (! callback_) {
-        return NanThrowError("callback is not a function");
+        return Nan::ThrowError("callback is not a function");
     }
 
     uv_mutex_init(&lock_);
@@ -76,12 +75,11 @@ NAN_METHOD(SetLogCallback) {
 }
 
 NAN_METHOD(SetLogLevel) {
-    NanScope();
-    if (args.Length() != 1) {
-        return NanThrowError("missing required argument: level");
+    if (info.Length() != 1) {
+        return Nan::ThrowError("missing required argument: level");
     }
 
-    String::Utf8Value level_str(args[0].As<String>());
+    String::Utf8Value level_str(info[0].As<String>());
 
     CassLogLevel level = CASS_LOG_DISABLED;
 
@@ -96,7 +94,7 @@ NAN_METHOD(SetLogLevel) {
     }
     CASS_LOG_LEVEL_MAP(CONVERT)
     else {
-        return NanThrowError("invalid level");
+        return Nan::ThrowError("invalid level");
     }
 
     cass_log_set_level(level);

@@ -9,41 +9,41 @@
 #define dprintf(...)
 //#define dprintf printf
 
-Persistent<Function> Query::constructor;
+Nan::Persistent<Function> Query::constructor;
 
 void Query::Init() {
-    NanScope();
+    Nan::Scope scope;
 
     // Prepare constructor template
-    Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-    tpl->SetClassName(NanNew("Query"));
+    Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+    tpl->SetClassName(Nan::New("Query").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    NODE_SET_PROTOTYPE_METHOD(tpl, "parse", WRAPPED_METHOD_NAME(Parse));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "bind", WRAPPED_METHOD_NAME(Bind));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
+    Nan::SetPrototypeMethod(tpl, "parse", WRAPPED_METHOD_NAME(Parse));
+    Nan::SetPrototypeMethod(tpl, "bind", WRAPPED_METHOD_NAME(Bind));
+    Nan::SetPrototypeMethod(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
 
-    NanAssignPersistent(constructor, tpl->GetFunction());
+    Nan::GetFunction(constructor.Reset(tpl));
 }
 
 Local<Object> Query::NewInstance() {
-    NanEscapableScope();
+    Nan::EscapableScope scope;
 
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
-    Local<Function> cons = NanNew<Function>(constructor);
-    Local<Object> instance = cons->NewInstance(argc, argv);
+    Local<Function> cons = Nan::New<Function>(constructor);
+    Local<Object> instance = Nan::NewInstance(consargc, argv);
 
-    return NanEscapeScope(instance);
+    return scope.Escape(instance);
 }
 
 NAN_METHOD(Query::New) {
-    NanEscapableScope();
+    Nan::EscapableScope scope;
 
     Query* obj = new Query();
-    obj->Wrap(args.This());
+    obj->Wrap(info.This());
 
-    NanReturnValue(args.This());
+    info.GetReturnValue().Set(info.This());
 }
 
 u_int32_t COUNT = 0;
@@ -75,9 +75,9 @@ void
 Query::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    NanObjectWrapHandle(this)->Set(client_str, client);
+    Nan::Set(this->handle(), client_str, client);
 
-    Client* c = node::ObjectWrap::Unwrap<Client>(client);
+    Client* c = Nan::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
     async_ = c->get_async();
     metrics_ = c->metrics();
@@ -92,29 +92,29 @@ Query::set_prepared_statement(CassStatement* statement)
 
 WRAPPED_METHOD(Query, Parse)
 {
-    NanScope();
+    Nan::Scope scope;
 
-    if (args.Length() < 1) {
-        return NanThrowError("invalid arguments");
+    if (info.Length() < 1) {
+        return Nan::ThrowError("invalid arguments");
     }
 
-    Local<String> query = args[0].As<String>();
+    Local<String> query = info[0].As<String>();
     Local<Array> params;
     Local<Object> options;
 
     u_int32_t num_params = 0;
-    if (args.Length() >= 2) {
-        params = args[1].As<Array>();
+    if (info.Length() >= 2) {
+        params = info[1].As<Array>();
         num_params = params->Length();
     }
 
-    if (args.Length() > 2) {
-        options = args[2].As<Object>();
+    if (info.Length() > 2) {
+        options = info[2].As<Object>();
     }
 
     // Stash the query so the client library can check it later.
     static PersistentString query_key("query");
-    NanObjectWrapHandle(this)->Set(query_key, query);
+    Nan::Set(this->handle(), query_key, query);
 
     String::Utf8Value query_str(query);
     statement_ = cass_statement_new_n(*query_str, query_str.length(), num_params);
@@ -124,27 +124,27 @@ WRAPPED_METHOD(Query, Parse)
 
 WRAPPED_METHOD(Query, Bind)
 {
-    if (args.Length() != 2) {
-        return NanThrowError("invalid arguments");
+    if (info.Length() != 2) {
+        return Nan::ThrowError("invalid arguments");
     }
 
     if (statement_ == NULL || prepared_ == false) {
-        return NanThrowError("bind can only be called on a prepared query");
+        return Nan::ThrowError("bind can only be called on a prepared query");
     }
 
-    Local<Array> params = args[0].As<Array>();
-    Local<Object> options = args[1].As<Object>();
+    Local<Array> params = info[0].As<Array>();
+    Local<Object> options = info[1].As<Object>();
 
     return bind(params, options);
 }
 
-_NAN_METHOD_RETURN_TYPE
+NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
     static PersistentString hints_str("hints");
     Local<Array> hints;
-    if (! options.IsEmpty() && options->Has(hints_str)) {
-        hints = options->Get(hints_str).As<Array>();
+    if (! options.IsEmpty() && Nan::Has(options, hints_str)) {
+        hints = Nan::Get(options, hints_str).As<Array>();
     }
 
     int bindingStatus = TypeMapper::bind_statement_params(statement_, params, hints);
@@ -152,40 +152,40 @@ Query::bind(Local<Array>& params, Local<Object>& options)
     if (bindingStatus != -1) {
         char err[1024];
         sprintf(err, "error binding statement argument %d", bindingStatus);
-        return NanThrowError(err);
+        return Nan::ThrowError(err);
     }
 
-    NanReturnUndefined();
+    return;
 }
 
 WRAPPED_METHOD(Query, Execute)
 {
-    NanScope();
+    Nan::Scope scope;
 
-    if (args.Length() != 2) {
-        return NanThrowError("execute requires 2 arguments: options, callback");
+    if (info.Length() != 2) {
+        return Nan::ThrowError("execute requires 2 arguments: options, callback");
     }
 
     if (session_ == NULL) {
-        return NanThrowError("client must be connected");
+        return Nan::ThrowError("client must be connected");
     }
 
     // Guard against running fetch multiple times in parallel
     if (fetching_) {
-        return NanThrowError("fetch already in progress");
+        return Nan::ThrowError("fetch already in progress");
     }
     fetching_ = true;
 
     // Need a reference while the operation is in progress
     Ref();
 
-    Local<Object> options = args[0].As<Object>();
-    NanCallback* callback = new NanCallback(args[1].As<Function>());
+    Local<Object> options = info[0].As<Object>();
+    Nan::Callback* callback = new Nan::Callback(info[1].As<Function>());
 
     u_int32_t paging_size = 5000;
     static PersistentString fetchSize("fetchSize");
-    if (options->Has(fetchSize)) {
-        paging_size = options->Get(fetchSize).As<Number>()->Uint32Value();
+    if Nan::Has((options, fetchSize)) {
+        paging_size = Nan::Get(options, fetchSize).As<Number>()->Uint32Value();
     }
 
     cass_statement_set_paging_size(statement_, paging_size);
@@ -201,7 +201,7 @@ WRAPPED_METHOD(Query, Execute)
     metrics_->start_request();
     async_->schedule(on_result_ready, future, this, callback);
 
-    NanReturnUndefined();
+    return;
 }
 
 // Callback on the main v8 thread when results have been posted
@@ -209,14 +209,14 @@ void
 Query::on_result_ready(CassFuture* future, void* client, void* data)
 {
     Query* self = (Query*)client;
-    NanCallback* callback = (NanCallback*) data;
+    Nan::Callback* callback = (Nan::Callback*) data;
     self->result_ready(future, callback);
 }
 
 void
-Query::result_ready(CassFuture* future, NanCallback* callback)
+Query::result_ready(CassFuture* future, Nan::Callback* callback)
 {
-    NanScope();
+    Nan::Scope scope;
 
     metrics_->stop_request();
 

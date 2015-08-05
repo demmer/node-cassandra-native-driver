@@ -8,40 +8,40 @@
 #include "metrics.h"
 #include "type-mapper.h"
 
-Persistent<Function> PreparedQuery::constructor;
+NanPersistent<Function> PreparedQuery::constructor;
 
 void PreparedQuery::Init() {
-    NanScope();
+    NanScope scope;
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-    tpl->SetClassName(NanNew("PreparedQuery"));
+    tpl->SetClassName(NanNew("PreparedQuery").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    NODE_SET_PROTOTYPE_METHOD(tpl, "prepare", WRAPPED_METHOD_NAME(Prepare));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "query", WRAPPED_METHOD_NAME(GetQuery));
+    NanSetPrototypeMethod(tpl, "prepare", WRAPPED_METHOD_NAME(Prepare));
+    NanSetPrototypeMethod(tpl, "query", WRAPPED_METHOD_NAME(GetQuery));
 
-    NanAssignPersistent(constructor, tpl->GetFunction());
+    NanGetFunction(constructor.Reset(tpl));
 }
 
 Local<Object> PreparedQuery::NewInstance() {
-    NanEscapableScope();
+    NanEscapableScope scope;
 
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
     Local<Function> cons = NanNew<Function>(constructor);
-    Local<Object> instance = cons->NewInstance(argc, argv);
+    Local<Object> instance = NanNewInstance(consargc, argv);
 
-    return NanEscapeScope(instance);
+    return scope.Escape(instance);
 }
 
 NAN_METHOD(PreparedQuery::New) {
-    NanEscapableScope();
+    NanEscapableScope scope;
 
     PreparedQuery* obj = new PreparedQuery();
-    obj->Wrap(args.This());
+    obj->Wrap(info.This());
 
-    NanReturnValue(args.This());
+    info.GetReturnValue().Set(info.This());
 }
 
 PreparedQuery::PreparedQuery()
@@ -64,9 +64,9 @@ void
 PreparedQuery::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    NanObjectWrapHandle(this)->Set(client_str, client);
+    NanSet(this->handle(), client_str, client);
 
-    Client* c = node::ObjectWrap::Unwrap<Client>(client);
+    Client* c = NanObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
     async_ = c->get_async();
     metrics_ = c->metrics();
@@ -74,14 +74,14 @@ PreparedQuery::set_client(v8::Local<v8::Object> client)
 
 WRAPPED_METHOD(PreparedQuery, Prepare)
 {
-    NanScope();
+    NanScope scope;
 
-    if (args.Length() != 2) {
+    if (info.Length() != 2) {
         return NanThrowError("invalid arguments");
     }
 
-    Local<String> query = args[0].As<String>();
-    NanCallback* callback = new NanCallback(args[1].As<Function>());
+    Local<String> query = info[0].As<String>();
+    NanCallback* callback = new NanCallback(info[1].As<Function>());
 
     String::Utf8Value query_str(query);
     CassFuture* future = cass_session_prepare_n(session_, *query_str, query_str.length());
@@ -90,7 +90,7 @@ WRAPPED_METHOD(PreparedQuery, Prepare)
 
     Ref();
 
-    NanReturnUndefined();
+    return;
 }
 
 void
@@ -104,7 +104,7 @@ PreparedQuery::on_prepared_ready(CassFuture* future, void* client, void* data)
 void
 PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 {
-    NanScope();
+    NanScope scope;
 
     metrics_->stop_request();
     CassError code = cass_future_error_code(future);
@@ -115,7 +115,7 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 
         Handle<Value> argv[] = {
             NanNull(),
-            NanObjectWrapHandle(this)
+            this->handle()
         };
         callback->Call(2, argv);
     }
@@ -127,7 +127,7 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 
 WRAPPED_METHOD(PreparedQuery, GetQuery)
 {
-    NanScope();
+    NanScope scope;
 
     if (prepared_ == NULL) {
         return NanThrowError("query can only be called after prepare");
@@ -135,12 +135,12 @@ WRAPPED_METHOD(PreparedQuery, GetQuery)
 
     Local<Value> val = Query::NewInstance();
 
-    Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
+    Query* query = NanObjectWrap::Unwrap<Query>(val->ToObject());
 
     static PersistentString client_str("client");
-    query->set_client(NanObjectWrapHandle(this)->Get(client_str).As<Object>());
+    NanGet(query->set_client(this->handle(), client_str).As<Object>());
 
     query->set_prepared_statement(prepare_statement());
 
-    NanReturnValue(val);
+    info.GetReturnValue().Set(val);
 }

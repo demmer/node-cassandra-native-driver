@@ -9,7 +9,7 @@
 
 using namespace v8;
 
-Persistent<Function> Client::constructor;
+Nan::Persistent<Function> Client::constructor;
 
 Client::Client()
     : metrics_(),
@@ -25,63 +25,62 @@ Client::~Client() {
 }
 
 void Client::Init() {
-    NanScope();
+    Nan::Scope scope;
 
     // Prepare constructor template
-    Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-    tpl->SetClassName(NanNew("Client"));
+    Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+    tpl->SetClassName(Nan::New("Client").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
     // Prototype
-    NODE_SET_PROTOTYPE_METHOD(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
-    NODE_SET_PROTOTYPE_METHOD(tpl, "metrics", WRAPPED_METHOD_NAME(GetMetrics));
+    Nan::SetPrototypeMethod(tpl, "connect", WRAPPED_METHOD_NAME(Connect));
+    Nan::SetPrototypeMethod(tpl, "new_query", WRAPPED_METHOD_NAME(NewQuery));
+    Nan::SetPrototypeMethod(tpl, "new_prepared_query", WRAPPED_METHOD_NAME(NewPreparedQuery));
+    Nan::SetPrototypeMethod(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
+    Nan::SetPrototypeMethod(tpl, "metrics", WRAPPED_METHOD_NAME(GetMetrics));
 
-    NanAssignPersistent(constructor, tpl->GetFunction());
+    Nan::GetFunction(constructor.Reset(tpl));
 }
 
 Local<Object> Client::NewInstance(Local<Value> arg) {
-    NanEscapableScope();
+    Nan::EscapableScope scope;
 
     const unsigned argc = 1;
     Local<Value> argv[argc] = { arg };
-    Local<Function> cons = NanNew<Function>(constructor);
-    Local<Object> instance = cons->NewInstance(argc, argv);
+    Local<Function> cons = Nan::New<Function>(constructor);
+    Local<Object> instance = Nan::NewInstance(consargc, argv);
 
-    return NanEscapeScope(instance);
+    return scope.Escape(instance);
 }
 
 NAN_METHOD(Client::New) {
-    NanScope();
 
-    if (!args.IsConstructCall()) {
-        return NanThrowError("non-constructor invocation not supported");
+    if (!info.IsConstructCall()) {
+        return Nan::ThrowError("non-constructor invocation not supported");
     }
 
     Client* obj = new Client();
-    obj->Wrap(args.This());
+    obj->Wrap(info.This());
 
-    if (args.Length() == 1) {
-        Local<Object> opts = args[0].As<Object>();
+    if (info.Length() == 1) {
+        Local<Object> opts = info[0].As<Object>();
         obj->configure(opts);
     }
 
-    NanReturnValue(args.This());
+    info.GetReturnValue().Set(info.This());
 }
 
 void
 Client::configure(v8::Local<v8::Object> opts)
 {
     static PersistentString keepalive_str("tcp_keepalive_delay");
-    const Local<Array> props = opts->GetPropertyNames();
+    const Local<Array> props = Nan::GetPropertyNames(opts);
     const uint32_t length = props->Length();
     for (uint32_t i = 0; i < length; ++i)
     {
-        const Local<Value> key = props->Get(i);
+        const Local<Value> key = Nan::Get(props, i);
         const v8::String::Utf8Value key_str(key);
-        unsigned value = opts->Get(key)->Int32Value();
+        unsigned value = Nan::Get(opts, key)->Int32Value();
 
 #define SET(_var) \
     if (strcmp(*key_str, #_var) == 0) { \
@@ -108,8 +107,8 @@ Client::configure(v8::Local<v8::Object> opts)
         if (strcmp(*key_str, "tcp_keepalive") == 0) {
             if (value == 0) {
                 cass_cluster_set_tcp_keepalive(cluster_, cass_false, value);
-            } else if (opts->Has(keepalive_str)) {
-                unsigned delay = opts->Get(keepalive_str)->Int32Value();
+            } else if Nan::Has((opts, keepalive_str)) {
+                unsigned delay = Nan::Get(opts, keepalive_str)->Int32Value();
                 cass_cluster_set_tcp_keepalive(cluster_, cass_true, delay);
             }
         }
@@ -125,58 +124,58 @@ Client::configure(v8::Local<v8::Object> opts)
 }
 
 WRAPPED_METHOD(Client, Connect) {
-    NanScope();
+    Nan::Scope scope;
 
-    if (args.Length() != 2) {
-        return NanThrowError("connect requires 2 arguments: options and callback");
+    if (info.Length() != 2) {
+        return Nan::ThrowError("connect requires 2 arguments: options and callback");
     }
 
-    Local<Object> options = args[0].As<Object>();
+    Local<Object> options = info[0].As<Object>();
     static PersistentString address_str("address");
     static PersistentString port_str("port");
 
     int port;
 
-    if (options->Has(address_str)) {
-        String::Utf8Value address(options->Get(address_str).As<String>());
+    if Nan::Has((options, address_str)) {
+        String::Utf8Value Nan::Get(address(options, address_str).As<String>());
         cass_cluster_set_contact_points(cluster_, *address);
     } else {
-        return NanThrowError("connect requires a address");
+        return Nan::ThrowError("connect requires a address");
     }
 
-    if (options->Has(port_str)) {
-        port = options->Get(port_str).As<Number>()->Int32Value();
+    if Nan::Has((options, port_str)) {
+        port = Nan::Get(options, port_str).As<Number>()->Int32Value();
         cass_cluster_set_port(cluster_, port);
     }
 
-    NanCallback* callback = new NanCallback(args[1].As<Function>());
+    Nan::Callback* callback = new Nan::Callback(info[1].As<Function>());
 
     CassFuture* future = cass_session_connect(session_, cluster_);
     async_.schedule(on_connected, future, this, callback);
 
     Ref();
-    NanReturnUndefined();
+    return;
 }
 
 void
 Client::on_connected(CassFuture* future, void* client, void* data)
 {
     Client* self = (Client*) client;
-    NanCallback* callback = (NanCallback*) data;
+    Nan::Callback* callback = (Nan::Callback*) data;
     self->connected(future, callback);
 }
 
 void
-Client::connected(CassFuture* future, NanCallback* callback)
+Client::connected(CassFuture* future, Nan::Callback* callback)
 {
-    NanScope();
+    Nan::Scope scope;
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
         error_callback(future, callback);
     } else {
         Handle<Value> argv[] = {
-            NanNull(),
+            Nan::Null(),
         };
         callback->Call(1, argv);
     }
@@ -187,51 +186,51 @@ Client::connected(CassFuture* future, NanCallback* callback)
 }
 
 WRAPPED_METHOD(Client, NewQuery) {
-    NanScope();
+    Nan::Scope scope;
     Local<Value> val = Query::NewInstance();
 
-    Query* query = node::ObjectWrap::Unwrap<Query>(val->ToObject());
-    query->set_client(NanObjectWrapHandle(this));
+    Query* query = Nan::ObjectWrap::Unwrap<Query>(val->ToObject());
+    query->set_client(this->handle());
 
-    NanReturnValue(val);
+    info.GetReturnValue().Set(val);
 }
 
 WRAPPED_METHOD(Client, NewPreparedQuery) {
-    NanScope();
+    Nan::Scope scope;
     Local<Value> val = PreparedQuery::NewInstance();
 
-    PreparedQuery* query = node::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
-    query->set_client(NanObjectWrapHandle(this));
+    PreparedQuery* query = Nan::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
+    query->set_client(this->handle());
 
-    NanReturnValue(val);
+    info.GetReturnValue().Set(val);
 }
 
 WRAPPED_METHOD(Client, NewBatch) {
-    NanScope();
+    Nan::Scope scope;
 
-    if (args.Length() != 1) {
-        return NanThrowError("must specify batch type");
+    if (info.Length() != 1) {
+        return Nan::ThrowError("must specify batch type");
     }
 
-    Local<String> type = args[0].As<String>();
+    Local<String> type = info[0].As<String>();
     Local<Value> val = Batch::NewInstance(type);
     if (! val.IsEmpty()) {
-        Batch* batch = node::ObjectWrap::Unwrap<Batch>(val->ToObject());
-        batch->set_client(NanObjectWrapHandle(this));
+        Batch* batch = Nan::ObjectWrap::Unwrap<Batch>(val->ToObject());
+        batch->set_client(this->handle());
     }
 
-    NanReturnValue(val);
+    info.GetReturnValue().Set(val);
 }
 
 WRAPPED_METHOD(Client, GetMetrics) {
-    NanScope();
+    Nan::Scope scope;
 
     bool reset = false;
-    if (args.Length() == 1) {
-        reset = args[0]->IsTrue();
+    if (info.Length() == 1) {
+        reset = info[0]->IsTrue();
     }
 
-    v8::Local<v8::Object> metrics = NanNew<v8::Object>();
+    v8::Local<v8::Object> metrics = Nan::New<v8::Object>();
     metrics_.get(metrics);
     if (reset) {
         metrics_.clear();
@@ -242,7 +241,7 @@ WRAPPED_METHOD(Client, GetMetrics) {
 
 #define X(_name, _group, _metric) \
     PersistentString _group ## __ ## _metric ## __str(_name); \
-    metrics->Set(_group ## __ ## _metric ## __str, NanNew<Number>(driver_metrics._group._metric));
+    Nan::Set(metrics, _group ## __ ## _metric ## __str, Nan::New<Number>(driver_metrics._group._metric));
 
     X("request_latency_min", requests, min);
     X("request_latency_max", requests, max);
@@ -270,5 +269,5 @@ WRAPPED_METHOD(Client, GetMetrics) {
     X("request_timeouts", errors, request_timeouts);
 
 #undef X
-    NanReturnValue(metrics);
+    info.GetReturnValue().Set(metrics);
 }

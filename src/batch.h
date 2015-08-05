@@ -14,7 +14,7 @@ class Client;
 class Metrics;
 
 // Wrapper for a batched query
-class Batch: public node::ObjectWrap {
+class Batch: public Nan::ObjectWrap {
 public:
     // Initialize the class constructor.
     static void Init();
@@ -43,7 +43,7 @@ private:
     WRAPPED_METHOD_DECL(Execute);
 
     static void on_result_ready(CassFuture* future, void* client, void* data);
-    void result_ready(CassFuture* future, NanCallback* callback);
+    void result_ready(CassFuture* future, Nan::Callback* callback);
 
     CassSession* session_;
     CassBatch* batch_;
@@ -54,7 +54,7 @@ private:
     AsyncFuture* async_;
     Result result_;
 
-    static v8::Persistent<v8::Function> constructor;
+    static Nan::Persistent<v8::Function> constructor;
 };
 
 #endif

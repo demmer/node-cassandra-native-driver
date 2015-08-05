@@ -14,7 +14,7 @@ class Client;
 class Metrics;
 
 // Wrapper for an in-progress query to the back end
-class Query: public node::ObjectWrap {
+class Query: public Nan::ObjectWrap {
 public:
     // Initialize the class constructor.
     static void Init();
@@ -50,10 +50,10 @@ private:
     // Execute the query, potentially retrieving additional pages.
     WRAPPED_METHOD_DECL(Execute);
 
-    _NAN_METHOD_RETURN_TYPE bind(Local<Array>& params, Local<Object>& options);
+    NAN_METHOD_RETURN_TYPE bind(Local<Array>& params, Local<Object>& options);
 
     static void on_result_ready(CassFuture* future, void* client, void* data);
-    void result_ready(CassFuture* future, NanCallback* callback);
+    void result_ready(CassFuture* future, Nan::Callback* callback);
 
     CassSession* session_;
     CassStatement* statement_;
@@ -65,7 +65,7 @@ private:
     AsyncFuture* async_;
     Result result_;
 
-    static v8::Persistent<v8::Function> constructor;
+    static Nan::Persistent<v8::Function> constructor;
 };
 
 #endif

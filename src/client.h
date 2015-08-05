@@ -8,7 +8,7 @@
 #include "async-future.h"
 #include "metrics.h"
 
-class Client : public node::ObjectWrap {
+class Client : public Nan::ObjectWrap {
 public:
     static void Init();
     static v8::Local<v8::Object> NewInstance(v8::Local<v8::Value> arg);
@@ -24,7 +24,7 @@ private:
     AsyncFuture async_;
 
     static void on_connected(CassFuture* future, void* client, void* data);
-    void connected(CassFuture* future, NanCallback* callback);
+    void connected(CassFuture* future, Nan::Callback* callback);
 
     explicit Client();
     ~Client();
@@ -39,7 +39,7 @@ private:
 
     void configure(v8::Local<v8::Object> opts);
 
-    static v8::Persistent<v8::Function> constructor;
+    static Nan::Persistent<v8::Function> constructor;
 };
 
 #endif

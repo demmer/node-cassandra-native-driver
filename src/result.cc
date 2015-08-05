@@ -17,16 +17,16 @@ Result::~Result()
     }
 
     for (size_t i = 0; i < column_info_.size(); ++i) {
-        NanDisposePersistent(column_info_[i]->name_);
+        column_info_[i]->name_.Reset();
         delete column_info_[i];
     }
     column_info_.empty();
 }
 
 void
-Result::do_callback(CassFuture* future, NanCallback* callback)
+Result::do_callback(CassFuture* future, Nan::Callback* callback)
 {
-    NanScope();
+    Nan::Scope scope;
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
@@ -36,15 +36,15 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
 
     result_ = cass_future_get_result(future);
 
-    Local<Object> res = NanNew<Object>();
+    Local<Object> res = Nan::New<Object>();
 
     static PersistentString more_str("more");
     cass_bool_t more = cass_result_has_more_pages(result_);
-    res->Set(more_str, more ? NanTrue() : NanFalse() );
+    Nan::Set(res, more_str, more ? Nan::True() : Nan::False() );
 
     static PersistentString rows_str("rows");
-    Local<Array> data = NanNew<Array>();
-    res->Set(rows_str, data);
+    Local<Array> data = Nan::New<Array>();
+    Nan::Set(res, rows_str, data);
     CassIterator* iterator = cass_iterator_from_result(result_);
 
     // Stash the column info for the first batch of results.
@@ -62,33 +62,33 @@ Result::do_callback(CassFuture* future, NanCallback* callback)
     size_t n = 0;
     while (cass_iterator_next(iterator)) {
         const CassRow* row = cass_iterator_get_row(iterator);
-        Local<Object> element = NanNew<Object>();
+        Local<Object> element = Nan::New<Object>();
         for (size_t i = 0; i < num_columns; ++i) {
             Local<Value> result;
             const CassValue* value = cass_row_get_column(row, i);
             if (TypeMapper::v8_from_cassandra(&result, column_info_[i]->type_, value))
             {
-                element->Set(NanNew(column_info_[i]->name_), result);
+                Nan::Set(element, Nan::New(column_info_[i]->name_), result);
             }
             else
             {
                 // XXX temporary until all the types are implemented in
                 // TypeMapper.
                 Handle<Value> argv[] = {
-                    NanError("unable to obtain column value")
+                    Nan::Error("unable to obtain column value")
                 };
                 callback->Call(1, argv);
                 return;
             }
         }
 
-        data->Set(n, element);
+        Nan::Set(data, n, element);
         n++;
     }
     cass_iterator_free(iterator);
 
     Handle<Value> argv[] = {
-        NanNull(),
+        Nan::Null(),
         res
     };
 

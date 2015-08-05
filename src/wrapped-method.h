@@ -9,8 +9,8 @@
 
 #define WRAPPED_METHOD(_cls, _name) \
     NAN_METHOD(_cls::WRAPPED_METHOD_NAME(_name)) { \
-        _cls* obj = ObjectWrap::Unwrap<_cls>(args.Holder()); \
-        return obj->_name(args); \
+        _cls* obj = Nan::ObjectWrap::Unwrap<_cls>(info.Holder()); \
+        return obj->_name(info); \
     } \
     NAN_METHOD(_cls::_name)
 

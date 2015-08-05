@@ -15,17 +15,17 @@ public:
 
     const CassResult* result() { return result_; }
 
-    void do_callback(CassFuture* future, NanCallback* callback);
+    void do_callback(CassFuture* future, Nan::Callback* callback);
 private:
     // Encapsulation of column metadata that can be cached for each row in the
     // results.
     struct Column {
         Column(const char* name, size_t name_length, CassValueType type) {
-            NanAssignPersistent(name_, NanNew<v8::String>(name, name_length));
+            name_.Reset(Nan::New<v8::String>(name, name_length).ToLocalChecked());
             type_ = type;
         };
 
-        v8::Persistent<v8::String> name_;
+        Nan::Persistent<v8::String> name_;
         CassValueType type_;
     };
     typedef std::vector<Column*> ColumnInfo;
