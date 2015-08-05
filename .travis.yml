@@ -3,6 +3,7 @@ node_js:
   - "0.10"
   - "0.12"
   - "iojs-v2.3.0"
+  - "iojs-v3.0.0"
 before_script:
   - npm install -g grunt-cli node-gyp mocha
 services:
