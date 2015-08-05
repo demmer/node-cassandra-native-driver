@@ -74,7 +74,7 @@ Result::do_callback(CassFuture* future, Nan::Callback* callback)
             {
                 // XXX temporary until all the types are implemented in
                 // TypeMapper.
-                Handle<Value> argv[] = {
+                Local<Value> argv[] = {
                     Nan::Error("unable to obtain column value")
                 };
                 callback->Call(1, argv);
@@ -87,7 +87,7 @@ Result::do_callback(CassFuture* future, Nan::Callback* callback)
     }
     cass_iterator_free(iterator);
 
-    Handle<Value> argv[] = {
+    Local<Value> argv[] = {
         Nan::Null(),
         res
     };

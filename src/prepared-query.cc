@@ -113,7 +113,7 @@ PreparedQuery::prepared_ready(CassFuture* future, Nan::Callback* callback)
     } else {
         prepared_ = cass_future_get_prepared(future);
 
-        Handle<Value> argv[] = {
+        Local<Value> argv[] = {
             Nan::Null(),
             this->handle()
         };

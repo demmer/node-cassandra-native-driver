@@ -15,7 +15,7 @@ inline void error_callback(CassFuture* future, Nan::Callback* callback)
 
     std::string err(msg, msg_len);
 
-    Handle<Value> argv[] = {
+    Local<Value> argv[] = {
         Nan::Error(err.c_str())
     };
 

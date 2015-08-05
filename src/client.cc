@@ -175,7 +175,7 @@ Client::connected(CassFuture* future, Nan::Callback* callback)
     if (code != CASS_OK) {
         error_callback(future, callback);
     } else {
-        Handle<Value> argv[] = {
+        Local<Value> argv[] = {
             Nan::Null(),
         };
         callback->Call(1, argv);
