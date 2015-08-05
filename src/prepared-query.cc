@@ -8,35 +8,35 @@
 #include "metrics.h"
 #include "type-mapper.h"
 
-NanPersistent<Function> PreparedQuery::constructor;
+Nan::Persistent<Function> PreparedQuery::constructor;
 
 void PreparedQuery::Init() {
-    NanScope scope;
+    Nan::HandleScope scope;
 
     // Prepare constructor template
-    Local<FunctionTemplate> tpl = NanNew<FunctionTemplate>(New);
-    tpl->SetClassName(NanNew("PreparedQuery").ToLocalChecked());
+    Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
+    tpl->SetClassName(Nan::New("PreparedQuery").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
 
-    NanSetPrototypeMethod(tpl, "prepare", WRAPPED_METHOD_NAME(Prepare));
-    NanSetPrototypeMethod(tpl, "query", WRAPPED_METHOD_NAME(GetQuery));
+    Nan::SetPrototypeMethod(tpl, "prepare", WRAPPED_METHOD_NAME(Prepare));
+    Nan::SetPrototypeMethod(tpl, "query", WRAPPED_METHOD_NAME(GetQuery));
 
-    NanGetFunction(constructor.Reset(tpl));
+    constructor.Reset(tpl->GetFunction());
 }
 
 Local<Object> PreparedQuery::NewInstance() {
-    NanEscapableScope scope;
+    Nan::EscapableHandleScope scope;
 
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
-    Local<Function> cons = NanNew<Function>(constructor);
-    Local<Object> instance = NanNewInstance(consargc, argv);
+    Local<Function> cons = Nan::New<Function>(constructor);
+    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
 
     return scope.Escape(instance);
 }
 
 NAN_METHOD(PreparedQuery::New) {
-    NanEscapableScope scope;
+    Nan::EscapableHandleScope scope;
 
     PreparedQuery* obj = new PreparedQuery();
     obj->Wrap(info.This());
@@ -64,9 +64,9 @@ void
 PreparedQuery::set_client(v8::Local<v8::Object> client)
 {
     static PersistentString client_str("client");
-    NanSet(this->handle(), client_str, client);
+    Nan::Set(this->handle(), client_str, client);
 
-    Client* c = NanObjectWrap::Unwrap<Client>(client);
+    Client* c = Nan::ObjectWrap::Unwrap<Client>(client);
     session_ = c->get_session();
     async_ = c->get_async();
     metrics_ = c->metrics();
@@ -74,14 +74,14 @@ PreparedQuery::set_client(v8::Local<v8::Object> client)
 
 WRAPPED_METHOD(PreparedQuery, Prepare)
 {
-    NanScope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() != 2) {
-        return NanThrowError("invalid arguments");
+        return Nan::ThrowError("invalid arguments");
     }
 
     Local<String> query = info[0].As<String>();
-    NanCallback* callback = new NanCallback(info[1].As<Function>());
+    Nan::Callback* callback = new Nan::Callback(info[1].As<Function>());
 
     String::Utf8Value query_str(query);
     CassFuture* future = cass_session_prepare_n(session_, *query_str, query_str.length());
@@ -97,14 +97,14 @@ void
 PreparedQuery::on_prepared_ready(CassFuture* future, void* client, void* data)
 {
     PreparedQuery* self = (PreparedQuery*)client;
-    NanCallback* callback = (NanCallback*) data;
+    Nan::Callback* callback = (Nan::Callback*) data;
     self->prepared_ready(future, callback);
 }
 
 void
-PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
+PreparedQuery::prepared_ready(CassFuture* future, Nan::Callback* callback)
 {
-    NanScope scope;
+    Nan::HandleScope scope;
 
     metrics_->stop_request();
     CassError code = cass_future_error_code(future);
@@ -114,7 +114,7 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
         prepared_ = cass_future_get_prepared(future);
 
         Handle<Value> argv[] = {
-            NanNull(),
+            Nan::Null(),
             this->handle()
         };
         callback->Call(2, argv);
@@ -127,18 +127,18 @@ PreparedQuery::prepared_ready(CassFuture* future, NanCallback* callback)
 
 WRAPPED_METHOD(PreparedQuery, GetQuery)
 {
-    NanScope scope;
+    Nan::HandleScope scope;
 
     if (prepared_ == NULL) {
-        return NanThrowError("query can only be called after prepare");
+        return Nan::ThrowError("query can only be called after prepare");
     }
 
     Local<Value> val = Query::NewInstance();
 
-    Query* query = NanObjectWrap::Unwrap<Query>(val->ToObject());
+    Query* query = Nan::ObjectWrap::Unwrap<Query>(val->ToObject());
 
     static PersistentString client_str("client");
-    NanGet(query->set_client(this->handle(), client_str).As<Object>());
+    query->set_client(Nan::To<v8::Object>(Nan::Get(this->handle(), client_str).ToLocalChecked()).ToLocalChecked());
 
     query->set_prepared_statement(prepare_statement());
 

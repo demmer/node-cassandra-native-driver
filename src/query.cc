@@ -23,22 +23,23 @@ void Query::Init() {
     Nan::SetPrototypeMethod(tpl, "bind", WRAPPED_METHOD_NAME(Bind));
     Nan::SetPrototypeMethod(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
 
-    Nan::GetFunction(constructor.Reset(tpl));
+    constructor.Reset(tpl->GetFunction());
+
 }
 
 Local<Object> Query::NewInstance() {
-    Nan::EscapabpeHandleScope scope;
+    Nan::EscapableHandleScope scope;
 
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(consargc, argv);
+    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
 
     return scope.Escape(instance);
 }
 
 NAN_METHOD(Query::New) {
-    Nan::EscapabpeHandleScope scope;
+    Nan::EscapableHandleScope scope;
 
     Query* obj = new Query();
     obj->Wrap(info.This());
@@ -142,9 +143,9 @@ Nan::NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
     static PersistentString hints_str("hints");
-    Local<Array> hints;
-    if (! options.IsEmpty() && Nan::Has(options, hints_str)) {
-        hints = Nan::Get(options, hints_str).As<Array>();
+    Local<Object> hints;
+    if (! options.IsEmpty() && Nan::Has(options, hints_str).FromJust()) {
+        hints = Nan::To<v8::Object>(Nan::Get(options, hints_str).ToLocalChecked()).ToLocalChecked();
     }
 
     int bindingStatus = TypeMapper::bind_statement_params(statement_, params, hints);
@@ -184,8 +185,8 @@ WRAPPED_METHOD(Query, Execute)
 
     u_int32_t paging_size = 5000;
     static PersistentString fetchSize("fetchSize");
-    if Nan::Has((options, fetchSize)) {
-        paging_size = Nan::Get(options, fetchSize).As<Number>()->Uint32Value();
+    if (Nan::Has(options, fetchSize).FromJust()) {
+        paging_size = Nan::Get(options, fetchSize).ToLocalChecked()->Uint32Value();
     }
 
     cass_statement_set_paging_size(statement_, paging_size);
