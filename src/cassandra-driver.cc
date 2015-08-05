@@ -24,11 +24,11 @@ void InitAll(Handle<Object> exports) {
     Query::Init();
 
     Nan::Set(exports, Nan::New("Client").ToLocalChecked(),
-        Nan::GetFunction(Nan::New<FunctionTemplate>(CreateClient)));
+        Nan::GetFunction(Nan::New<FunctionTemplate>(CreateClient)).ToLocalChecked());
     Nan::Set(exports, Nan::New("set_log_callback").ToLocalChecked(),
-        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogCallback)));
+        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogCallback)).ToLocalChecked());
     Nan::Set(exports, Nan::New("set_log_level").ToLocalChecked(),
-        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogLevel)));
+        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogLevel)).ToLocalChecked());
 }
 
 NODE_MODULE(cassandra_native_driver, InitAll)
