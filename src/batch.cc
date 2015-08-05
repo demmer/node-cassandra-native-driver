@@ -34,7 +34,9 @@ Local<Object> Batch::NewInstance(const Local<String>& type) {
     const unsigned argc = 1;
     Local<Value> argv[argc] = {type};
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
+//    Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
+
+    Local<Object> instance = cons->NewInstance(argc, argv);
 
     return scope.Escape(instance);
 }
