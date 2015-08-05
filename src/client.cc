@@ -39,16 +39,17 @@ void Client::Init() {
     Nan::SetPrototypeMethod(tpl, "new_batch", WRAPPED_METHOD_NAME(NewBatch));
     Nan::SetPrototypeMethod(tpl, "metrics", WRAPPED_METHOD_NAME(GetMetrics));
 
-    Nan::GetFunction(constructor.Reset(tpl));
+    constructor.Reset(tpl->GetFunction());
+
 }
 
 Local<Object> Client::NewInstance(Local<Value> arg) {
-    Nan::EscapabpeHandleScope scope;
+    Nan::EscapableHandleScope scope;
 
     const unsigned argc = 1;
     Local<Value> argv[argc] = { arg };
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(consargc, argv);
+    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
 
     return scope.Escape(instance);
 }
@@ -74,13 +75,13 @@ void
 Client::configure(v8::Local<v8::Object> opts)
 {
     static PersistentString keepalive_str("tcp_keepalive_delay");
-    const Local<Array> props = Nan::GetPropertyNames(opts);
+    const Local<Array> props = Nan::GetPropertyNames(opts).ToLocalChecked();
     const uint32_t length = props->Length();
     for (uint32_t i = 0; i < length; ++i)
     {
-        const Local<Value> key = Nan::Get(props, i);
+        const Local<Value> key = Nan::Get(props, i).ToLocalChecked();
         const v8::String::Utf8Value key_str(key);
-        unsigned value = Nan::Get(opts, key)->Int32Value();
+        unsigned value = Nan::Get(opts, key).ToLocalChecked()->Int32Value();
 
 #define SET(_var) \
     if (strcmp(*key_str, #_var) == 0) { \
@@ -107,8 +108,8 @@ Client::configure(v8::Local<v8::Object> opts)
         if (strcmp(*key_str, "tcp_keepalive") == 0) {
             if (value == 0) {
                 cass_cluster_set_tcp_keepalive(cluster_, cass_false, value);
-            } else if Nan::Has((opts, keepalive_str)) {
-                unsigned delay = Nan::Get(opts, keepalive_str)->Int32Value();
+            } else if (Nan::Has(opts, keepalive_str).FromJust()) {
+                unsigned delay = Nan::Get(opts, keepalive_str).ToLocalChecked()->Int32Value();
                 cass_cluster_set_tcp_keepalive(cluster_, cass_true, delay);
             }
         }
@@ -136,15 +137,15 @@ WRAPPED_METHOD(Client, Connect) {
 
     int port;
 
-    if Nan::Has((options, address_str)) {
-        String::Utf8Value Nan::Get(address(options, address_str).As<String>());
+    if (Nan::Has(options, address_str).FromJust()) {
+        String::Utf8Value address(Nan::Get(options, address_str).ToLocalChecked());
         cass_cluster_set_contact_points(cluster_, *address);
     } else {
         return Nan::ThrowError("connect requires a address");
     }
 
-    if Nan::Has((options, port_str)) {
-        port = Nan::Get(options, port_str).As<Number>()->Int32Value();
+    if (Nan::Has(options, port_str).FromJust()) {
+        port = Nan::Get(options, port_str).ToLocalChecked()->Int32Value();
         cass_cluster_set_port(cluster_, port);
     }
 
