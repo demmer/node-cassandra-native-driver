@@ -49,7 +49,7 @@ Local<Object> Client::NewInstance(Local<Value> arg) {
     const unsigned argc = 1;
     Local<Value> argv[argc] = { arg };
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
+    Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
 
     return scope.Escape(instance);
 }

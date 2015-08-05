@@ -31,19 +31,16 @@ void Batch::Init() {
 Local<Object> Batch::NewInstance(const Local<String>& type) {
     Nan::EscapableHandleScope scope;
 
-    String::Utf8Value type_str(type);
-
     const unsigned argc = 1;
     Local<Value> argv[argc] = {type};
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
+    Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
 
     return scope.Escape(instance);
 }
 
 NAN_METHOD(Batch::New) {
     Nan::EscapableHandleScope scope;
-
     String::Utf8Value type_str(info[0].As<String>());
 
     CassBatchType type;

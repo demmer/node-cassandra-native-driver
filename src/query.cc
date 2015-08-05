@@ -33,7 +33,7 @@ Local<Object> Query::NewInstance() {
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
+    Local<Object> instance = Nan::NewInstance(cons, argc, argv).ToLocalChecked();
 
     return scope.Escape(instance);
 }
