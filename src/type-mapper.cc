@@ -32,13 +32,13 @@ TypeMapper::infer_type(const Local<Value>& value)
 }
 
 int
-TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params, Local<Array> hints)
+TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params, Local<Object> hints)
 {
     for (u_int32_t i = 0; i < params->Length(); ++i) {
-        const Local<Value>& arg = Nan::Get(params, i);
+        const Local<Value> arg = Nan::Get(params, i).ToLocalChecked();
         CassValueType type = hints.IsEmpty()
         ? CASS_VALUE_TYPE_UNKNOWN
-        : (CassValueType) Nan::Get(hints, i).As<Number>()->Int32Value();
+        : (CassValueType) Nan::Get(hints, i).ToLocalChecked()->Int32Value();
 
         if (! TypeMapper::bind_statement_param(statement, i, arg, type)) {
             return i;
@@ -82,7 +82,7 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         size_t length = array->Length();
         CassCollection* list = cass_collection_new(CASS_COLLECTION_TYPE_LIST, array->Length());
         for (size_t j = 0; j < length; ++j) {
-            Local<Value> val = Nan::Get(array, j);
+            Local<Value> val = Nan::Get(array, j).ToLocalChecked();
             append_collection(list, val);
         }
         cass_statement_bind_collection(statement, i, list);
@@ -108,17 +108,17 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         return true;
     }
     case CASS_VALUE_TYPE_BOOLEAN: {
-        cass_bool_t booleanValue = (Nan::To<bool>(value) ? cass_true : cass_false);
+        cass_bool_t booleanValue = (Nan::To<bool>(value).FromJust() ? cass_true : cass_false);
         cass_statement_bind_bool(statement, i, booleanValue);
         return true;
     }
     case CASS_VALUE_TYPE_MAP: {
         Local<Object> obj = value->ToObject();
-        Local<Array> keys = Nan::GetOwnPropertyNames(obj);
+        Local<Array> keys = Nan::GetOwnPropertyNames(obj).ToLocalChecked();
         CassCollection* cassObj = cass_collection_new(CASS_COLLECTION_TYPE_MAP, keys->Length());
         for (size_t j = 0; j < keys->Length(); j++) {
-            Local<Value> key = Nan::Get(keys, j);
-            Local<Value> val = Nan::Get(obj, key);
+            Local<Value> key = Nan::Get(keys, j).ToLocalChecked();
+            Local<Value> val = Nan::Get(obj, key).ToLocalChecked();
             if (!append_collection(cassObj, key) || !append_collection(cassObj, val)) {
                 return false;
             }
@@ -187,7 +187,7 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
         return true;
     }
     case CASS_VALUE_TYPE_BOOLEAN: {
-        cass_bool_t booleanValue = (Nan::To<bool>(value) ? cass_true : cass_false);
+        cass_bool_t booleanValue = (Nan::To<bool>(value).FromJust() ? cass_true : cass_false);
         cass_collection_append_bool(collection, booleanValue);
         return true;
     }
@@ -231,7 +231,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         if (cass_value_get_bytes(value, &data, &size) != CASS_OK) {
             return false;
         }
-        *result = Nan::NewBufferHandle((const char*)data, size);
+        *result = Nan::NewBuffer((char*)data, size).ToLocalChecked();
         return true;
     }
     case CASS_VALUE_TYPE_ASCII:
