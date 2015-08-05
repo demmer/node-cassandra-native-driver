@@ -16,7 +16,7 @@ NAN_METHOD(CreateClient) {
 }
 
 void InitAll(Handle<Object> exports) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     Batch::Init();
     Client::Init();

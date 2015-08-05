@@ -26,7 +26,7 @@ Result::~Result()
 void
 Result::do_callback(CassFuture* future, Nan::Callback* callback)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {

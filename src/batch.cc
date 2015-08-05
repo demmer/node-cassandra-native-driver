@@ -14,7 +14,7 @@
 Nan::Persistent<Function> Batch::constructor;
 
 void Batch::Init() {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
@@ -29,7 +29,7 @@ void Batch::Init() {
 }
 
 Local<Object> Batch::NewInstance(const Local<String>& type) {
-    Nan::EscapableScope scope;
+    Nan::EscapabpeHandleScope scope;
 
     String::Utf8Value type_str(type);
 
@@ -42,7 +42,7 @@ Local<Object> Batch::NewInstance(const Local<String>& type) {
 }
 
 NAN_METHOD(Batch::New) {
-    Nan::EscapableScope scope;
+    Nan::EscapabpeHandleScope scope;
 
     String::Utf8Value type_str(info[0].As<String>());
 
@@ -147,7 +147,7 @@ WRAPPED_METHOD(Batch, AddPrepared)
 
 WRAPPED_METHOD(Batch, Execute)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() != 2) {
         return Nan::ThrowError("execute requires 2 arguments: options, callback");
@@ -193,7 +193,7 @@ Batch::on_result_ready(CassFuture* future, void* client, void* data)
 void
 Batch::result_ready(CassFuture* future, Nan::Callback* callback)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     metrics_->stop_request();
 

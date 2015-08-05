@@ -7,7 +7,7 @@
  */
 inline void error_callback(CassFuture* future, Nan::Callback* callback)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     const char* msg;
     size_t msg_len;

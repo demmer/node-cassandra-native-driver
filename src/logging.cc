@@ -26,7 +26,7 @@ async_ready(uv_async_t* handle, int status)
 async_ready(uv_async_t* handle)
 #endif
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
     uv_mutex_lock(&lock_);
 
     for (size_t i = 0; i < queue_.size(); i++) {

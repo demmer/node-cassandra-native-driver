@@ -12,7 +12,7 @@
 Nan::Persistent<Function> Query::constructor;
 
 void Query::Init() {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
@@ -27,7 +27,7 @@ void Query::Init() {
 }
 
 Local<Object> Query::NewInstance() {
-    Nan::EscapableScope scope;
+    Nan::EscapabpeHandleScope scope;
 
     const unsigned argc = 0;
     Local<Value> argv[argc] = {};
@@ -38,7 +38,7 @@ Local<Object> Query::NewInstance() {
 }
 
 NAN_METHOD(Query::New) {
-    Nan::EscapableScope scope;
+    Nan::EscapabpeHandleScope scope;
 
     Query* obj = new Query();
     obj->Wrap(info.This());
@@ -92,7 +92,7 @@ Query::set_prepared_statement(CassStatement* statement)
 
 WRAPPED_METHOD(Query, Parse)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() < 1) {
         return Nan::ThrowError("invalid arguments");
@@ -160,7 +160,7 @@ Query::bind(Local<Array>& params, Local<Object>& options)
 
 WRAPPED_METHOD(Query, Execute)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() != 2) {
         return Nan::ThrowError("execute requires 2 arguments: options, callback");
@@ -216,7 +216,7 @@ Query::on_result_ready(CassFuture* future, void* client, void* data)
 void
 Query::result_ready(CassFuture* future, Nan::Callback* callback)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     metrics_->stop_request();
 

@@ -25,7 +25,7 @@ Client::~Client() {
 }
 
 void Client::Init() {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     // Prepare constructor template
     Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
@@ -43,7 +43,7 @@ void Client::Init() {
 }
 
 Local<Object> Client::NewInstance(Local<Value> arg) {
-    Nan::EscapableScope scope;
+    Nan::EscapabpeHandleScope scope;
 
     const unsigned argc = 1;
     Local<Value> argv[argc] = { arg };
@@ -124,7 +124,7 @@ Client::configure(v8::Local<v8::Object> opts)
 }
 
 WRAPPED_METHOD(Client, Connect) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() != 2) {
         return Nan::ThrowError("connect requires 2 arguments: options and callback");
@@ -168,7 +168,7 @@ Client::on_connected(CassFuture* future, void* client, void* data)
 void
 Client::connected(CassFuture* future, Nan::Callback* callback)
 {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     CassError code = cass_future_error_code(future);
     if (code != CASS_OK) {
@@ -186,7 +186,7 @@ Client::connected(CassFuture* future, Nan::Callback* callback)
 }
 
 WRAPPED_METHOD(Client, NewQuery) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
     Local<Value> val = Query::NewInstance();
 
     Query* query = Nan::ObjectWrap::Unwrap<Query>(val->ToObject());
@@ -196,7 +196,7 @@ WRAPPED_METHOD(Client, NewQuery) {
 }
 
 WRAPPED_METHOD(Client, NewPreparedQuery) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
     Local<Value> val = PreparedQuery::NewInstance();
 
     PreparedQuery* query = Nan::ObjectWrap::Unwrap<PreparedQuery>(val->ToObject());
@@ -206,7 +206,7 @@ WRAPPED_METHOD(Client, NewPreparedQuery) {
 }
 
 WRAPPED_METHOD(Client, NewBatch) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     if (info.Length() != 1) {
         return Nan::ThrowError("must specify batch type");
@@ -223,7 +223,7 @@ WRAPPED_METHOD(Client, NewBatch) {
 }
 
 WRAPPED_METHOD(Client, GetMetrics) {
-    Nan::Scope scope;
+    Nan::HandleScope scope;
 
     bool reset = false;
     if (info.Length() == 1) {
