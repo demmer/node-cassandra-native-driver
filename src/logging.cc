@@ -38,7 +38,7 @@ async_ready(uv_async_t* handle)
         static PersistentString message("message");
 
         Nan::Set(info, time_ms.handle(), Nan::New<Number>(log->time_ms));
-        Nan::Set(info, severity.handle(), Nan::New<String>(cass_log_level_string(log->severity).ToLocalChecked()));
+        Nan::Set(info, severity.handle(), Nan::New<String>(cass_log_level_string(log->severity)).ToLocalChecked());
         Nan::Set(info, message.handle(), Nan::New<String>(log->message).ToLocalChecked());
 
         Handle<Value> argv[] = {
