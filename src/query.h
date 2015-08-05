@@ -50,7 +50,7 @@ private:
     // Execute the query, potentially retrieving additional pages.
     WRAPPED_METHOD_DECL(Execute);
 
-    NAN_METHOD_RETURN_TYPE bind(Local<Array>& params, Local<Object>& options);
+    Nan::NAN_METHOD_RETURN_TYPE bind(Local<Array>& params, Local<Object>& options);
 
     static void on_result_ready(CassFuture* future, void* client, void* data);
     void result_ready(CassFuture* future, Nan::Callback* callback);

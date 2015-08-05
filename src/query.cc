@@ -138,7 +138,7 @@ WRAPPED_METHOD(Query, Bind)
     return bind(params, options);
 }
 
-NAN_METHOD_RETURN_TYPE
+Nan::NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
     static PersistentString hints_str("hints");
