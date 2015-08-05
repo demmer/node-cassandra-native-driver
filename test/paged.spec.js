@@ -16,7 +16,7 @@ var key = 'row, col';
 var data = test_utils.generate(100);
 var client;
 
-describe('paged queries', function() {
+describe('paging', function() {
     before(function() {
         client = new TestClient();
         return test_utils.setup_environment(client)
@@ -28,7 +28,29 @@ describe('paged queries', function() {
             });
     });
 
-    it('autoPage fetches all data', function() {
+    it('execute can page through results', function() {
+        var cols = [];
+        return client.execute('select * from ' + table, [], {fetchSize: data.length / 2})
+        .then(function(results) {
+            expect(results.rows.length).equal(data.length / 2);
+            cols = cols.concat(_.pluck(results.rows, 'col'));
+            expect(results.pageState).not.null();
+            return client.execute('select * from ' + table, [],
+                {fetchSize: data.length, pageState: results.pageState});
+        })
+        .then(function(results) {
+            expect(results.rows.length).equal(data.length / 2);
+            expect(results.pageState).is.undefined();
+            cols = cols.concat(_.pluck(results.rows, 'col'));
+
+            cols.sort(function(a,b) { return a - b; });
+            for (i = 0; i < cols.length; ++i) {
+                expect(cols[i]).equal(i);
+            }
+        });
+    });
+
+    it('execute autoPage fetches all data', function() {
         return client.execute('select * from ' + table, [],
         {fetchSize: 2, autoPage: true})
             .then(function(results) {
@@ -40,25 +62,43 @@ describe('paged queries', function() {
             });
     });
 
-    it('manual paging returns only fetchSize points at a time', function() {
-        var cols = [];
-        return client.execute('select * from ' + table, [], {fetchSize: data.length / 2})
+    it('eachRow returns only one chunk at a time', function() {
+        var rows = [];
+        function addRow(row) {
+            rows.push(row);
+        }
+        return client.eachRow('select * from ' + table, [],
+            {fetchSize: data.length / 2}, addRow)
         .then(function(results) {
-            expect(results.rows.length).equal(data.length / 2);
-            cols = cols.concat(_.pluck(results.rows, 'col'));
-            expect(results.meta.pageState).not.null();
-            return client.execute('select * from ' + table, [],
-                {fetchSize: data.length / 2, pageState: results.meta.pageState});
+            expect(results.pageState).not.null();
+            return client.eachRow('select * from ' + table, [],
+                {fetchSize: data.length, pageState: results.pageState}, addRow);
         })
         .then(function(results) {
-            expect(results.rows.length).equal(data.length / 2);
-            cols = cols.concat(_.pluck(results.rows, 'col'));
-
+            expect(results.pageState).undefined();
+            expect(rows.length).equal(data.length);
+            var cols = _.pluck(results.rows, 'col');
             cols.sort(function(a,b) { return a - b; });
             for (i = 0; i < cols.length; ++i) {
                 expect(cols[i]).equal(i);
             }
         });
+    });
+
+    it('eachRow autoPage fetches all data', function() {
+        var rows = [];
+        return client.eachRow('select * from ' + table, [],
+            {fetchSize: 2, autoPage: true},
+            function(row) {
+                rows.push(row);
+            })
+            .then(function(results) {
+                expect(rows.length).equal(data.length);
+                rows = _.sortBy(rows, 'col');
+                for (i = 0; i < rows.length; ++i) {
+                    expect(rows[i].col).equal(i);
+                }
+            });
     });
 
     after(function() {
