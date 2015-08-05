@@ -25,24 +25,24 @@ void Batch::Init() {
     Nan::SetPrototypeMethod(tpl, "add_prepared", WRAPPED_METHOD_NAME(AddPrepared));
     Nan::SetPrototypeMethod(tpl, "execute", WRAPPED_METHOD_NAME(Execute));
 
-    Nan::GetFunction(constructor.Reset(tpl));
+    constructor.Reset(tpl->GetFunction());
 }
 
 Local<Object> Batch::NewInstance(const Local<String>& type) {
-    Nan::EscapabpeHandleScope scope;
+    Nan::EscapableHandleScope scope;
 
     String::Utf8Value type_str(type);
 
     const unsigned argc = 1;
     Local<Value> argv[argc] = {type};
     Local<Function> cons = Nan::New<Function>(constructor);
-    Local<Object> instance = Nan::NewInstance(consargc, argv);
+    Local<Object> instance = Nan::NewInstance(cons).ToLocalChecked();
 
     return scope.Escape(instance);
 }
 
 NAN_METHOD(Batch::New) {
-    Nan::EscapabpeHandleScope scope;
+    Nan::EscapableHandleScope scope;
 
     String::Utf8Value type_str(info[0].As<String>());
 
@@ -120,13 +120,13 @@ WRAPPED_METHOD(Batch, AddPrepared)
 
     PreparedQuery* prepared = Nan::ObjectWrap::Unwrap<PreparedQuery>(prepared_obj->ToObject());
     Local<Array> params = info[1].As<Array>();
-    Local<Array> hints;
+    Local<Object> hints;
 
     if (info.Length() > 2) {
         static PersistentString hints_str("hints");
         Local<Object> options = info[2].As<Object>();
-        if Nan::Has((options, hints_str)) {
-            hints = Nan::Get(options, hints_str).As<Array>();
+        if (Nan::Has(options, hints_str).FromJust()) {
+            hints = Nan::To<v8::Object>(Nan::Get(options, hints_str).ToLocalChecked()).ToLocalChecked();
         }
     }
 
