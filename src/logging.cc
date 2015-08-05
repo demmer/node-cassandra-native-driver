@@ -73,8 +73,6 @@ NAN_METHOD(SetLogCallback) {
     uv_async_init(uv_default_loop(), async_, async_ready);
 
     cass_log_set_callback(on_log_message, NULL);
-
-    NanReturnNull();
 }
 
 NAN_METHOD(SetLogLevel) {
@@ -102,6 +100,4 @@ NAN_METHOD(SetLogLevel) {
     }
 
     cass_log_set_level(level);
-
-    NanReturnNull();
 }

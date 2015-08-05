@@ -16,8 +16,7 @@ describe('log callback', function() {
     }
 
     it('enables callback to obtain log messages', function() {
-        var ret = cassandra.set_log_callback(log_callback);
-        expect(ret).is.null;
+        cassandra.set_log_callback(log_callback);
 
         var c = new cassandra.Client();
         return c.connectAsync({address: '127.0.0.1', port: 9999})
@@ -38,8 +37,7 @@ describe('log callback', function() {
     });
 
     it('supports configurable log level', function() {
-        var ret = cassandra.set_log_level("TRACE");
-        expect(ret).is.null;
+        cassandra.set_log_level("TRACE");
 
         var c = new cassandra.Client();
         return c.connectAsync({address: '127.0.0.1', port: 9999})
