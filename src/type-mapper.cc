@@ -52,6 +52,11 @@ bool
 TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
                                 const Local<Value>& value, CassValueType given_type)
 {
+    if (value->IsNull()) {
+        cass_statement_bind_null(statement, i);
+        return true;
+    }
+
     CassValueType type = given_type == CASS_VALUE_TYPE_UNKNOWN ? infer_type(value) : given_type;
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
@@ -202,6 +207,12 @@ bool
 TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
                          const CassValue* value)
 {
+
+    if (value == NULL || cass_value_is_null(value)) {
+        *result = NanNull();
+        return true;
+    }
+
     switch(type) {
     case CASS_VALUE_TYPE_BLOB: {
         const cass_byte_t* data;
