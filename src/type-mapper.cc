@@ -24,13 +24,7 @@ TypeMapper::infer_type(const Local<Value>& value)
         return CASS_VALUE_TYPE_BOOLEAN;
     }
     else if (value -> IsObject()) {
-        // If the value has a low/high key it's a bigint, otherwise it's a map
-        Local<Object> obj = value->ToObject();
-        if (obj->Has(NanNew<String>("low")) && obj->Has(NanNew<String>("high"))) {
-            return CASS_VALUE_TYPE_BIGINT;
-        } else {
-            return CASS_VALUE_TYPE_MAP;
-        }
+        return CASS_VALUE_TYPE_MAP;
     }
     else {
         return CASS_VALUE_TYPE_UNKNOWN;
