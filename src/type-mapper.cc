@@ -26,7 +26,7 @@ TypeMapper::infer_type(const Local<Value>& value)
     else if (value -> IsObject()) {
         // If the value has a low/high key it's a bigint, otherwise it's a map
         Local<Object> obj = value->ToObject();
-        if (obj->Has(String::New("low", 3)) && obj->Has(String::New("high", 4))) {
+        if (obj->Has(NanNew<String>("low")) && obj->Has(NanNew<String>("high"))) {
             return CASS_VALUE_TYPE_BIGINT;
         } else {
             return CASS_VALUE_TYPE_MAP;
@@ -327,8 +327,8 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         //         "low": <lowValue>,
         //         "high": <highValue>
         //     }
-        Local<Value> lowKey = NanNew<String>("low", 3);
-        Local<Value> highKey = NanNew<String>("high", 4);
+        Local<Value> lowKey = NanNew<String>("low");
+        Local<Value> highKey = NanNew<String>("high");
         Local<Value> lowVal = NanNew<Number>((double)low);
         Local<Value> highVal = NanNew<Number>((double)high);
         Local<Object> obj = NanNew<Object>();
