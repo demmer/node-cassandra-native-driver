@@ -231,7 +231,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         if (cass_value_get_bytes(value, &data, &size) != CASS_OK) {
             return false;
         }
-        *result = Nan::NewBuffer((char*)data, size).ToLocalChecked();
+        *result = Nan::CopyBuffer((char*)data, size).ToLocalChecked();
         return true;
     }
     case CASS_VALUE_TYPE_ASCII:
