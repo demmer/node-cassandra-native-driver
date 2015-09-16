@@ -19,7 +19,7 @@ var client;
 
 describe('async-future callbacks', function() {
     before(function() {
-        client = new TestClient();
+        client = new TestClient({result_loop_elapsed_max: 1500});
         return test_utils.setup_environment(client)
             .then(function() {
                 return client.createTable(table, fields, key);
@@ -103,6 +103,70 @@ describe('async-future callbacks', function() {
             }
         }
         interval = setInterval(timer, 900);
+    });
+
+    it('enforces result_loop_elapsed_max limit', function(done) {
+        this.timeout(30000);
+        var cql = util.format('SELECT * FROM %s where ROW = \'row-1\'', table);
+
+        var N = 10;
+        var Q = 0;
+        var T = 0;
+
+        client.metrics(true); // reset metrics
+
+        function query() {
+            client.client.execute(cql, [], function(err, result) {
+                console.log('query', Q, 'done');
+                Q++;
+
+                if (Q == 1) {
+                    for (var i = 0; i < 5; ++i) {
+                        query();
+                    }
+                }
+
+                expect(client.metrics().response_count).equal(Q);
+
+                spin(500);
+            });
+        }
+
+        // Issue five queries in parallel then wait to see that they all
+        // complete. Once the first one returns complete, send another five.
+        //
+        // Since the driver is configured to spend no more than 1.5 seconds in
+        // the loop, it should take it three passes through the queue to drain
+        // everything, so three timer events should fire.
+        for (var i = 0; i < 5; ++i) {
+            query();
+        }
+        spin(500);
+
+        function completed() {
+            expect(T).equal(4);
+            var metrics = client.metrics();
+            expect(metrics.request_count).equal(10);
+            expect(metrics.response_count).equal(10);
+            expect(metrics.pending_request_count_max).equal(9);
+            expect(metrics.response_queue_drain_count_max).equal(3);
+            expect(metrics.response_queue_drain_time_max).within(1500000, 1510000);
+            expect(metrics.response_queue_elapsed_limit_count).equal(2);
+
+            done();
+        }
+
+        var interval;
+        function timer() {
+            console.log('timer', T, 'done');
+            T++;
+
+            if (Q == N) {
+                clearInterval(interval);
+                completed();
+            }
+        }
+        interval = setInterval(timer, 100);
     });
 
     after(function() {

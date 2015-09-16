@@ -74,13 +74,22 @@ void
 AsyncFuture::async_ready()
 {
     uv_mutex_lock(&lock_);
-    if (queue_.empty()) {
-        uv_mutex_unlock(&lock_);
-        return;
+
+    // Keep track of whether there were leftover items in the ready_queue_ due
+    // to the result_loop_elapsed_max limit having been triggered previously. If
+    // true, then once the ready_queue is drained, the async needs to be kicked
+    // to handle any events that may be in the queue_.
+    bool ready_queue_was_empty = ready_queue_.empty();
+
+    if (ready_queue_was_empty) {
+        if (queue_.empty()) {
+            uv_mutex_unlock(&lock_);
+            return;
+        }
+
+        std::swap(queue_, ready_queue_);
     }
 
-    std::queue<Pending*> ready_queue;
-    std::swap(queue_, ready_queue);
     uv_mutex_unlock(&lock_);
 
     uint32_t count = 0;
@@ -88,12 +97,28 @@ AsyncFuture::async_ready()
     uint32_t elapsed;
 
     ::gettimeofday(&start, 0);
-    while (! ready_queue.empty()) {
-        Pending* pending = ready_queue.front();
-        ready_queue.pop();
+    while (! ready_queue_.empty()) {
+        Pending* pending = ready_queue_.front();
+        ready_queue_.pop();
         pending->callback_(pending->future_, pending->client_, pending->data_);
         delete pending;
         count++;
+
+        if (result_loop_elapsed_max_ != 0) {
+            ::gettimeofday(&end, 0);
+            elapsed = timeval_diff_us(start, end);
+            if (elapsed > result_loop_elapsed_max_ * 1000) {
+                metrics_->response_queue_elapsed_limit_count_++;
+                break;
+            }
+        }
+    }
+
+    // If there were leftover items in the ready queue when this wakeup
+    // occurred, or if there are any leftover items from this iteration, then
+    // make sure to schedule another wakeup.
+    if (! ready_queue_was_empty || !ready_queue_.empty()) {
+        uv_async_send(async_);
     }
 
     ::gettimeofday(&end, 0);
