@@ -53,7 +53,7 @@ describe('session request limits', function() {
 
     function query(opts) {
         var c = new cassandra.Client(opts);
-        return c.connectAsync({address: '127.0.0.1'})
+        return c.connectAsync({address: test_utils.cassandra_host()})
         .delay(250) // let logs be emitted
         .then(function() {
             var n = 1000;
