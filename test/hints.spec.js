@@ -54,6 +54,14 @@ var types = [
         type: 'blob',
         value: new Buffer([1, 2, 3]),
         code: types.CASS_VALUE_TYPE_BLOB
+    },
+    {
+        type: 'bigint',
+        value: {
+            'low': 1546411504,
+            'high': 286668
+        },
+        code: types.CASS_VALUE_TYPE_BIGINT
     }
 ];
 

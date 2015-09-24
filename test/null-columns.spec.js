@@ -36,8 +36,7 @@ describe('columns with null values', function() {
             })
             .then(function() {
                 return client.insertRows(table, data);
-            })
-            .catch(function(err) { console.log(err); });
+            });
     });
 
     it('retrieves null columns', function() {
@@ -52,7 +51,6 @@ describe('columns with null values', function() {
             .then(function(results) {
                 expect(results.rows.length).equal(1);
                 var row = results.rows[0];
-                console.log(row);
 
                 // All keys should be returned
                 var keys = Object.keys(row);
@@ -63,8 +61,7 @@ describe('columns with null values', function() {
                 expect(row.col1).equal(1);
                 expect(row.col2).equal(null);
                 expect(row.col3).equal(null);
-            })
-            .catch(function(err) { console.log(err); });
+            });
     });
 
     after(function() {

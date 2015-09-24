@@ -127,9 +127,20 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         cass_collection_free(cassObj);
         return true;
     }
+    case CASS_VALUE_TYPE_BIGINT: {
+        // Bigints are passed in as {'low': <lowInt>, 'high': <highInt>}
+        Local<Object> obj = value->ToObject();
+        Local<Value> lowKey = NanNew<String>("low", 3);
+        Local<Value> highKey = NanNew<String>("high", 4);
+        int lowVal = obj->Get(lowKey)->ToNumber()->NumberValue();
+        int highVal = obj->Get(highKey)->ToNumber()->NumberValue();
+
+        cass_int64_t bigintValue = ((long)highVal) << 32 | lowVal;
+        cass_statement_bind_int64(statement, i, bigintValue);
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
-    case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:
@@ -293,9 +304,35 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         *result = obj;
         return true;
     }
+    case CASS_VALUE_TYPE_BIGINT: {
+        // Get the bigint value
+        cass_int64_t intValue;
+        if (cass_value_get_int64(value, &intValue) != CASS_OK) {
+            return false;
+        }
+
+        // Because Node's native Number object only goes up to 53bit we'll need to unpack the 64bit
+        // value into two 32bit values who can be passed up to node separately
+        int low = (int) intValue;
+        int high = (int) (intValue >> 32);
+
+        // We pass up the following object:
+        //     {
+        //         "low": <lowValue>,
+        //         "high": <highValue>
+        //     }
+        Local<Value> lowKey = NanNew<String>("low");
+        Local<Value> highKey = NanNew<String>("high");
+        Local<Value> lowVal = NanNew<Number>((double)low);
+        Local<Value> highVal = NanNew<Number>((double)high);
+        Local<Object> obj = NanNew<Object>();
+        obj->Set(lowKey, lowVal);
+        obj->Set(highKey, highVal);
+        *result = obj;
+        return true;
+    }
     case CASS_VALUE_TYPE_UNKNOWN:
     case CASS_VALUE_TYPE_CUSTOM:
-    case CASS_VALUE_TYPE_BIGINT:
     case CASS_VALUE_TYPE_DECIMAL:
     case CASS_VALUE_TYPE_UUID:
     case CASS_VALUE_TYPE_VARINT:

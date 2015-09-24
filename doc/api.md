@@ -208,7 +208,7 @@ Currently the driver supports only a subset of the cassandra data types. The fol
 |:--------------------------|:-------------------
 | CASS_VALUE_TYPE_CUSTOM    | *Unsupported*
 | CASS_VALUE_TYPE_ASCII     | String |
-| CASS_VALUE_TYPE_BIGINT    | *Unsupported* |
+| CASS_VALUE_TYPE_BIGINT    | Object of the form `{'low': <lowInt>, 'high': <highInt>}` |
 | CASS_VALUE_TYPE_BLOB      | Buffer |
 | CASS_VALUE_TYPE_BOOLEAN   | Boolean |
 | CASS_VALUE_TYPE_COUNTER   | Number |
