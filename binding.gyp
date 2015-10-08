@@ -5,6 +5,11 @@
   "targets": [
     {
         "target_name": "cassandra-native-driver",
+
+        "xcode_settings": {
+            "OTHER_CFLAGS": ["-Wno-unused-local-typedefs"]
+        },
+
         "sources": [
         "src/async-future.cc",
         "src/batch.cc",
