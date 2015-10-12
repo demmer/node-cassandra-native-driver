@@ -26,5 +26,8 @@ module.exports = {
         CASS_VALUE_TYPE_LIST: 0x0020,
         CASS_VALUE_TYPE_MAP: 0x0021,
         CASS_VALUE_TYPE_SET: 0x0022
+    },
+    encodings: {
+        BIGINT_AS_OBJECT: 0x01 << 16
     }
 };

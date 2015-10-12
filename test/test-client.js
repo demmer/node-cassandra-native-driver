@@ -216,5 +216,6 @@ var TestClient = Base.extend({
 });
 
 TestClient.types = types;
+TestClient.encodings = cassandra.encodings;
 
 module.exports = TestClient;

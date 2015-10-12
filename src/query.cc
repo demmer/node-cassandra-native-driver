@@ -189,8 +189,18 @@ WRAPPED_METHOD(Query, Execute)
     if (Nan::Has(options, fetchSize).FromJust()) {
         paging_size = Nan::Get(options, fetchSize).ToLocalChecked()->Uint32Value();
     }
-
     cass_statement_set_paging_size(statement_, paging_size);
+
+    static PersistentString result_types_str("result_types");
+    Local<Array> result_types;
+    if (! options.IsEmpty() && options->Has(result_types_str)) {
+        result_types = options->Get(result_types_str).As<Array>();
+        std::vector<u_int32_t> types_array;
+        for (u_int32_t i = 0; i < result_types->Length(); ++i) {
+            types_array.push_back(result_types->Get(i)->ToNumber()->Int32Value());
+        }
+        result_.set_column_types(types_array);
+    }
 
     // If there's a result from the previous iteration, update the paging state
     // to fetch the next page and free it.

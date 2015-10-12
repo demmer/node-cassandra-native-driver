@@ -2,6 +2,8 @@
 #include "type-mapper.h"
 using namespace v8;
 
+static const u_int32_t BIGINT_AS_OBJECT = 0x1 << 16;
+
 CassValueType
 TypeMapper::infer_type(const Local<Value>& value)
 {
@@ -32,15 +34,19 @@ TypeMapper::infer_type(const Local<Value>& value)
 }
 
 int
-TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params, Local<Object> hints)
+TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params, Local<Object> param_types)
 {
     for (u_int32_t i = 0; i < params->Length(); ++i) {
         const Local<Value> arg = Nan::Get(params, i).ToLocalChecked();
-        CassValueType type = hints.IsEmpty()
-        ? CASS_VALUE_TYPE_UNKNOWN
-        : (CassValueType) Nan::Get(hints, i).ToLocalChecked()->Int32Value();
+        CassValueType type = CASS_VALUE_TYPE_UNKNOWN;
+        u_int32_t encoding = 0;
+        if (!param_types.IsEmpty()) {
+            u_int32_t code = Nan::Get(param_types, i).ToLocalChecked()->Int32Value();
+            type = cass_type_from_code(code);
+            encoding = encoding_from_code(code);
+        }
 
-        if (! TypeMapper::bind_statement_param(statement, i, arg, type)) {
+        if (! TypeMapper::bind_statement_param(statement, i, arg, type, encoding)) {
             return i;
         }
     }
@@ -49,8 +55,11 @@ TypeMapper::bind_statement_params(CassStatement* statement, Local<Array> params,
 }
 
 bool
-TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
-                                const Local<Value>& value, CassValueType given_type)
+TypeMapper::bind_statement_param(CassStatement* statement,
+                                 u_int32_t i,
+                                 const Local<Value>& value,
+                                 CassValueType given_type,
+                                 u_int32_t encoding)
 {
     if (value->IsNull()) {
         cass_statement_bind_null(statement, i);
@@ -102,8 +111,21 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         return true;
     }
     case CASS_VALUE_TYPE_COUNTER:
-    case CASS_VALUE_TYPE_TIMESTAMP: {
-        cass_int64_t intValue = value->ToNumber()->IntegerValue();
+    case CASS_VALUE_TYPE_TIMESTAMP:
+    case CASS_VALUE_TYPE_BIGINT: {
+        cass_int64_t intValue;
+        if (encoding == BIGINT_AS_OBJECT) {
+            // Bigints passed in as {'low': <lowInt>, 'high': <highInt>}
+            Local<Object> obj = value->ToObject();
+            Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
+            Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
+            int lowVal = obj->Get(lowKey)->ToNumber()->NumberValue();
+            int highVal = obj->Get(highKey)->ToNumber()->NumberValue();
+
+            intValue = ((long)highVal) << 32 | lowVal;
+        } else {
+            intValue = value->ToNumber()->IntegerValue();
+        }
         cass_statement_bind_int64(statement, i, intValue);
         return true;
     }
@@ -125,18 +147,6 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
         }
         cass_statement_bind_collection(statement, i, cassObj);
         cass_collection_free(cassObj);
-        return true;
-    }
-    case CASS_VALUE_TYPE_BIGINT: {
-        // Bigints are passed in as {'low': <lowInt>, 'high': <highInt>}
-        Local<Object> obj = value->ToObject();
-        Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
-        Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
-        int lowVal = obj->Get(lowKey)->ToNumber()->NumberValue();
-        int highVal = obj->Get(highKey)->ToNumber()->NumberValue();
-
-        cass_int64_t bigintValue = ((long)highVal) << 32 | lowVal;
-        cass_statement_bind_int64(statement, i, bigintValue);
         return true;
     }
     case CASS_VALUE_TYPE_UNKNOWN:
@@ -215,9 +225,12 @@ TypeMapper::append_collection(CassCollection* collection, const Local<Value>& va
 }
 
 bool
-TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
-                         const CassValue* value)
+TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result,
+                              u_int32_t code,
+                              const CassValue* value)
 {
+    CassValueType type = cass_type_from_code(code);
+    u_int32_t encoding = encoding_from_code(code);
 
     if (value == NULL || cass_value_is_null(value)) {
         *result = Nan::Null();
@@ -254,12 +267,36 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         return true;
     }
     case CASS_VALUE_TYPE_COUNTER:
-    case CASS_VALUE_TYPE_TIMESTAMP: {
+    case CASS_VALUE_TYPE_TIMESTAMP:
+    case CASS_VALUE_TYPE_BIGINT: {
+        // Get the bigint value
         cass_int64_t intValue;
         if (cass_value_get_int64(value, &intValue) != CASS_OK) {
             return false;
         }
-        *result = Nan::New<Number>((double)intValue);
+        if (encoding == BIGINT_AS_OBJECT) {
+            // Because Node's native Number object only goes up to 53bit, unpack
+            // the 64bit value into two 32bit values who can be passed up to
+            // node separately
+            int low = (int) intValue;
+            int high = (int) (intValue >> 32);
+
+            // We pass up the following object:
+            //     {
+            //         "low": <lowValue>,
+            //         "high": <highValue>
+            //     }
+            Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
+            Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
+            Local<Number> lowVal = Nan::New<Number>((double)low);
+            Local<Number> highVal = Nan::New<Number>((double)high);
+            Local<Object> obj = Nan::New<Object>();
+            obj->Set(lowKey, lowVal);
+            obj->Set(highKey, highVal);
+            *result = obj;
+        } else {
+            *result = Nan::New<Number>((double)intValue);
+        }
         return true;
     }
     case CASS_VALUE_TYPE_DOUBLE: {
@@ -301,33 +338,6 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
             Nan::Set(obj, a, b);
         }
         cass_iterator_free(iterator);
-        *result = obj;
-        return true;
-    }
-    case CASS_VALUE_TYPE_BIGINT: {
-        // Get the bigint value
-        cass_int64_t intValue;
-        if (cass_value_get_int64(value, &intValue) != CASS_OK) {
-            return false;
-        }
-
-        // Because Node's native Number object only goes up to 53bit we'll need to unpack the 64bit
-        // value into two 32bit values who can be passed up to node separately
-        int low = (int) intValue;
-        int high = (int) (intValue >> 32);
-
-        // We pass up the following object:
-        //     {
-        //         "low": <lowValue>,
-        //         "high": <highValue>
-        //     }
-        Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
-        Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
-        Local<Number> lowVal = Nan::New<Number>((double)low);
-        Local<Number> highVal = Nan::New<Number>((double)high);
-        Local<Object> obj = Nan::New<Object>();
-        obj->Set(lowKey, lowVal);
-        obj->Set(highKey, highVal);
         *result = obj;
         return true;
     }
