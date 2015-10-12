@@ -143,13 +143,13 @@ WRAPPED_METHOD(Query, Bind)
 Nan::NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
-    static PersistentString hints_str("hints");
-    Local<Object> hints;
-    if (! options.IsEmpty() && Nan::Has(options, hints_str).FromJust()) {
-        hints = Nan::To<v8::Object>(Nan::Get(options, hints_str).ToLocalChecked()).ToLocalChecked();
+    static PersistentString param_types_str("param_types");
+    Local<Object> param_types;
+    if (! options.IsEmpty() && Nan::Has(options, param_types_str).FromJust()) {
+        param_types = Nan::To<v8::Object>(Nan::Get(options, param_types_str).ToLocalChecked()).ToLocalChecked();
     }
 
-    int bindingStatus = TypeMapper::bind_statement_params(statement_, params, hints);
+    int bindingStatus = TypeMapper::bind_statement_params(statement_, params, param_types);
 
     if (bindingStatus != -1) {
         char err[1024];

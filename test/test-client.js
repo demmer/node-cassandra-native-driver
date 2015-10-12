@@ -92,21 +92,24 @@ var TestClient = Base.extend({
 
         var cql = util.format('INSERT INTO %s (%s) VALUES (%s)', table, cols, vars);
 
-        var hints = options.hints || {};
-        var hintsArray = _.map(keys, function(k) {
-            return hints[k] || types.CASS_VALUE_TYPE_UNKNOWN;
-        });
+        var param_types = options.param_types || {};
+        if (_.isObject(param_types) && !_.isArray(param_types)) {
+            var param_typesArray = _.map(keys, function(k) {
+                return param_types[k] || types.CASS_VALUE_TYPE_UNKNOWN;
+            });
+            param_types = param_typesArray;
+        }
 
         if (options.timestamp && options.ttl) {
             cql = cql + ' USING TIMESTAMP ? AND TTL ?';
-            hintsArray.push(types.CASS_VALUE_TYPE_TIMESTAMP);
-            hintsArray.push(types.CASS_VALUE_TYPE_INT);
+            param_types.push(types.CASS_VALUE_TYPE_TIMESTAMP);
+            param_types.push(types.CASS_VALUE_TYPE_INT);
 
         } else if (options.timestamp || options.ttl) {
             throw new Error('xxx not implemented');
         }
 
-        return {cql: cql, hints: hintsArray};
+        return {cql: cql, param_types: param_types};
     },
 
     // Insert n rows of data into the given table using the supplied generator
@@ -124,7 +127,7 @@ var TestClient = Base.extend({
                 vals.push(options.ttl);
             }
 
-            return self.execute(query.cql, vals, {hints: query.hints});
+            return self.execute(query.cql, vals, {param_types: query.param_types});
         }
         return Promise.map(data, insert, {concurrency: options.concurrency});
     },
@@ -152,7 +155,7 @@ var TestClient = Base.extend({
             }
 
             var q = prepared.query();
-            q.bind(vals, {hints: query.hints});
+            q.bind(vals, {param_types: query.param_types});
             q.execute({}, cb);
         }
 
@@ -195,7 +198,7 @@ var TestClient = Base.extend({
                     vals.push(options.timestamp);
                     vals.push(options.ttl);
                 }
-                batch.add_prepared(prepared, vals, {hints: query.hints});
+                batch.add_prepared(prepared, vals, {param_types: query.param_types});
             });
             batch.execute({}, cb);
         }
