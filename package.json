@@ -5,13 +5,13 @@
   "main": "index.js",
   "repository": "https://github.com/jut-io/node-cassandra-native-driver",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha -t 5000"
   },
   "author": "Michael Demmer <demmer@jut.io>",
   "license": "MIT",
   "dependencies": {
     "debug": "^2.1.1",
-    "nan": "^1.8.4"
+    "nan": "^2.1.0"
   },
   "files": [
     "README.md",

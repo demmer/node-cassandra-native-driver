@@ -12,24 +12,23 @@
 using namespace v8;
 
 NAN_METHOD(CreateClient) {
-    NanScope();
-    NanReturnValue(Client::NewInstance(args[0]));
+    info.GetReturnValue().Set(Client::NewInstance(info[0]));
 }
 
 void InitAll(Handle<Object> exports) {
-    NanScope();
+    Nan::HandleScope scope;
 
     Batch::Init();
     Client::Init();
     PreparedQuery::Init();
     Query::Init();
 
-    exports->Set(NanNew("Client"),
-        NanNew<FunctionTemplate>(CreateClient)->GetFunction());
-    exports->Set(NanNew("set_log_callback"),
-        NanNew<FunctionTemplate>(SetLogCallback)->GetFunction());
-    exports->Set(NanNew("set_log_level"),
-        NanNew<FunctionTemplate>(SetLogLevel)->GetFunction());
+    Nan::Set(exports, Nan::New("Client").ToLocalChecked(),
+        Nan::GetFunction(Nan::New<FunctionTemplate>(CreateClient)).ToLocalChecked());
+    Nan::Set(exports, Nan::New("set_log_callback").ToLocalChecked(),
+        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogCallback)).ToLocalChecked());
+    Nan::Set(exports, Nan::New("set_log_level").ToLocalChecked(),
+        Nan::GetFunction(Nan::New<FunctionTemplate>(SetLogLevel)).ToLocalChecked());
 }
 
 NODE_MODULE(cassandra_native_driver, InitAll)

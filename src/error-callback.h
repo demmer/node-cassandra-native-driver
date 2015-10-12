@@ -5,9 +5,9 @@
  * Call the given callback with a new error wrapping the msg extracted
  * from the given future.
  */
-inline void error_callback(CassFuture* future, NanCallback* callback)
+inline void error_callback(CassFuture* future, Nan::Callback* callback)
 {
-    NanScope();
+    Nan::HandleScope scope;
 
     const char* msg;
     size_t msg_len;
@@ -15,8 +15,8 @@ inline void error_callback(CassFuture* future, NanCallback* callback)
 
     std::string err(msg, msg_len);
 
-    Handle<Value> argv[] = {
-        NanError(err.c_str())
+    Local<Value> argv[] = {
+        Nan::Error(err.c_str())
     };
 
     callback->Call(1, argv);

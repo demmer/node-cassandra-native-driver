@@ -13,7 +13,7 @@ class Client;
 class Metrics;
 
 // Wrapper for an in-progress PreparedQuery to the back end
-class PreparedQuery: public node::ObjectWrap {
+class PreparedQuery: public Nan::ObjectWrap {
 public:
     // Initialize the class constructor.
     static void Init();
@@ -43,7 +43,7 @@ private:
     WRAPPED_METHOD_DECL(GetQuery);
 
     static void on_prepared_ready(CassFuture* future, void* client, void* data);
-    void prepared_ready(CassFuture* future, NanCallback* callback);
+    void prepared_ready(CassFuture* future, Nan::Callback* callback);
 
     CassSession* session_;
     AsyncFuture* async_;
@@ -51,7 +51,7 @@ private:
     CassStatement* statement_;
     const CassPrepared* prepared_;
 
-    static v8::Persistent<v8::Function> constructor;
+    static Nan::Persistent<v8::Function> constructor;
 };
 
 #endif

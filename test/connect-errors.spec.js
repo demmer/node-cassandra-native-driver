@@ -15,7 +15,7 @@ describe('connection error handling', function() {
             .catch(function(err) {
                 expect(err.message).equal('No hosts available for the control connection');
             })
-            .delay(10);
+            .delay(25);
         });
     });
 });

@@ -30,7 +30,7 @@ describe('timestamp support', function() {
         describe(method, function() {
             it('inserts data with timestamp', function() {
                 var now = new Date().getTime();
-                return client[method](table, data, {timestamp: now, ttl: 1});
+                return client[method](table, data, {timestamp: now, ttl: 2});
             });
 
             it('retrieves all the data when immediately querying', function() {
@@ -53,7 +53,7 @@ describe('timestamp support', function() {
 
             it('waits for a few seconds', function() {
                 this.timeout(5000);
-                return Promise.delay(2000);
+                return Promise.delay(4000);
             });
 
             it('queries again and should get no data', function() {

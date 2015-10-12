@@ -1,4 +1,4 @@
-var addon = require('./build/Release/cassandra-native-driver');
+var addon = require('./addon');
 
 module.exports = {
     Client: require('./lib/client'),

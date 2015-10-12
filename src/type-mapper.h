@@ -12,7 +12,7 @@ public:
     // Bind each element of params to statement, using hints if given to infer types
     // if one of the bindings fails, return the index of that element
     // or -1 if successful
-    static int bind_statement_params(CassStatement* statement, v8::Local<v8::Array> params, v8::Local<v8::Array> hints);
+    static int bind_statement_params(CassStatement* statement, v8::Local<v8::Array> params, v8::Local<v8::Object> hints);
 
     // Set the given Javascript value as the i'th parameter to the statement
     static bool bind_statement_param(CassStatement* statement, u_int32_t i,
