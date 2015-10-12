@@ -52,7 +52,8 @@ Execute the specified query.
 
 Supported options include:
 
-* hints: Type hints to indicate how to convert the params. See [Types](#types).
+* param_types: Type codes to indicate how to convert the params. See [Types](#types).
+* result_types: Type codes to indicate how to convert the results. See [Types](#types).
 * fetchSize: Maximum number of rows to return in a single query
 * pageState: State from a prior invocation to indicate where to continue processing results.
 * autoPage: Flag to indicate whether the library should page through all the results before triggering the callback.
@@ -72,7 +73,8 @@ Execute the specified query.
 
 Supported options include:
 
-* hints: Type hints to indicate how to convert the params. See [Types](#types).
+* param_types: Type codes to indicate how to convert the params. See [Types](#types).
+* result_types: Type codes to indicate how to convert the results. See [Types](#types).
 * fetchSize: Maximum number of rows to return in a single query
 * pageState: State from a prior invocation to indicate where to continue processing results.
 * autoPage: Flag to indicate whether the library should page through all the results before triggering the callback.
@@ -122,7 +124,7 @@ Parse the given expression.
 
 Supported options include:
 
-* hints: Type hints to indicate how to convert the params. See [Types](#types).
+* param_types: Type codes to indicate how to convert the params. See [Types](#types).
 
 ## bind(params, options)
 
@@ -133,7 +135,7 @@ Bind the given parameters to the prepared query.
 
 Supported options include:
 
-* hints: Type hints to indicate how to convert the params. See [Types](#types).
+* param_types: Type codes to indicate how to convert the params. See [Types](#types).
 
 ## execute(options, callback)
 
@@ -144,6 +146,7 @@ Execute the query, calling the callback when completed.
 
 Supported options include:
 
+* result_types: Type codes to indicate how to convert the results. See [Types](#types).
 * fetchSize: Maximum number of rows to return in a single query
 * pageState: If given a reference to the query object, will continue processing from the previous invocation.
 
@@ -177,7 +180,7 @@ Add a given prepared and bind the query parameters to the batch.
 
 Supported options include:
 
-* hints: Type hints to indicate how to convert the params. See [Types](#types).
+* param_types: Type codes to indicate how to convert the params. See [Types](#types).
 
 Note that `batch.add_prepared(prepared, params)` is functionally identical to:
 
@@ -202,34 +205,37 @@ On completion, will execute `callback(err, results)`. If the operation succeeded
 
 ## Supported Data Types
 
-Currently the driver supports only a subset of the cassandra data types. The following table lists the types that are supported and their corresponding Javascript value types:
+Currently the driver supports only a subset of the cassandra data types, and the the following table lists the types that are supported and their corresponding Javascript value types. 
+
 
 | **Cassandra Type**        | **Javascript Type**
 |:--------------------------|:-------------------
-| CASS_VALUE_TYPE_CUSTOM    | *Unsupported*
 | CASS_VALUE_TYPE_ASCII     | String |
-| CASS_VALUE_TYPE_BIGINT    | Object of the form `{'low': <lowInt>, 'high': <highInt>}` |
+| CASS_VALUE_TYPE_BIGINT    | Number (*) |
 | CASS_VALUE_TYPE_BLOB      | Buffer |
 | CASS_VALUE_TYPE_BOOLEAN   | Boolean |
-| CASS_VALUE_TYPE_COUNTER   | Number |
+| CASS_VALUE_TYPE_COUNTER   | Number (*) |
+| CASS_VALUE_TYPE_CUSTOM    | *Unsupported* |
 | CASS_VALUE_TYPE_DECIMAL   | *Unsupported* |
 | CASS_VALUE_TYPE_DOUBLE    | Number |
 | CASS_VALUE_TYPE_FLOAT     | Number |
-| CASS_VALUE_TYPE_INT       | Number |
-| CASS_VALUE_TYPE_TEXT      | String |
-| CASS_VALUE_TYPE_TIMESTAMP | Number |
-| CASS_VALUE_TYPE_UUID      | *Unsupported* |
-| CASS_VALUE_TYPE_VARCHAR   | String |
-| CASS_VALUE_TYPE_VARINT    | *Unsupported* |
-| CASS_VALUE_TYPE_TIMEUUID  | *Unsupported* |
 | CASS_VALUE_TYPE_INET      | *Unsupported* |
+| CASS_VALUE_TYPE_INT       | Number |
 | CASS_VALUE_TYPE_LIST      | *Unsupported* |
 | CASS_VALUE_TYPE_MAP       | *Unsupported* |
 | CASS_VALUE_TYPE_SET       | *Unsupported* |
+| CASS_VALUE_TYPE_TEXT      | String |
+| CASS_VALUE_TYPE_TIMESTAMP | Number (*) |
+| CASS_VALUE_TYPE_TIMEUUID  | *Unsupported* |
+| CASS_VALUE_TYPE_UUID      | *Unsupported* |
+| CASS_VALUE_TYPE_VARCHAR   | String |
+| CASS_VALUE_TYPE_VARINT    | *Unsupported* |
 
-## Type inference and hints
+(*) Large number values can also be encoded in a javascript object for full precision. See [handling large numbers](#handling_large_numbers) below.
 
-When binding data parameters to a query, it is not always possible to determine the correct cassandra type by introspecting the Javascript data type. Therefore a caller can pass an array of `hints` containing the above type codes to indicate how to encode the various parameters.
+## Type inference and param_types
+
+When binding data parameters to a query, it is not always possible to determine the correct cassandra type by introspecting the Javascript data type since there are more than one mapping. Therefore a caller can pass an array of `param_types` containing the above type codes to indicate how to encode the various parameters.
 
 For example, given the following table:
 
@@ -255,10 +261,12 @@ client.connect({...}, function() {
     client.execute('INSERT INTO test (key, doubleval, floatval, intval) values (?, ?, ?, ?)',
         ["testing", 1.1000000001, 1.25, 100],
         {
-            hints: [types.CASS_VALUE_TYPE_VARCHAR,
+            param_types: [
+                    types.CASS_VALUE_TYPE_VARCHAR,
                     types.CASS_VALUE_TYPE_DOUBLE,
                     types.CASS_VALUE_TYPE_FLOAT,
-                    types.CASS_VALUE_TYPE_INT]
+                    types.CASS_VALUE_TYPE_INT
+                ]
         },
         function(err, results) {
             console.log('inserted');
@@ -267,7 +275,50 @@ client.connect({...}, function() {
 });
 ```
 
-If the hints are not supplied, then the driver tries to infer the cassandra type based on the Javascript type. Specifically, Javascript Strings are treated as VARCHAR, Number as DOUBLE, Boolean as BOOL, and Buffer as BLOB.
+If the param_types are not supplied, then the driver tries to infer the cassandra type based on the Javascript type. Specifically, Javascript Strings are treated as VARCHAR, Number as DOUBLE, Boolean as BOOL, and Buffer as BLOB.
+
+<a name="handling_large_numbers"></a>
+## Handling large numbers
+
+Javascript numbers can only hold 53 bits of precision, which may not be sufficient for some applications that need to access the full 64 bits of precision of some cassandra types. To handle this, an application can include a `BIGINT_AS_OBJECT` encoding flag along with the type code to cause the driver to split the 64 bit value into a javascript object of the form `{low: <lowInt>, 'high': <highInt>}`.
+
+To use this support, type codes can to be passed to the driver to control the conversion of data both for the parameters and for the results of a query. For example:
+
+```
+var cassandra = require('cassandra-native-driver');
+var client = new cassandra.Client();
+
+client.connect({...}, function() {
+    var types = cassandra.types;
+    var encodings = cassandra.encodings;
+    client.execute('INSERT INTO test (key, value) values (?, ?)',
+        ["testing", {low: 0x12345678, high: 0x12345678}],
+        {
+            param_types: [
+                    types.CASS_VALUE_TYPE_VARCHAR,
+                    types.CASS_VALUE_TYPE_BIGINT | encodings.BIGINT_AS_OBJECT
+                ]
+        },
+        function(err, results) {
+            console.log('inserted data... now querying');
+            client.execute('SELECT key, value from test where key = ?',
+                ["testing"],
+                {
+                    param_types: [
+                        types.CASS_VALUE_TYPE_VARCHAR,
+                    ],
+                    result_types: [
+                        types.CASS_VALUE_TYPE_VARCHAR,
+                        types.CASS_VALUE_TYPE_BIGINT | encodings.BIGINT_AS_OBJECT
+                        ]
+                },
+            function(err, results) {
+                console.log('got data', results.rows[0].value);
+            }
+        }
+    );
+});
+```
 
 # <a name="logging"></a> Logging
 
