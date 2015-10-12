@@ -5,6 +5,9 @@ var _ = require('underscore');
 var util = require('util');
 var test_utils = require('./test-utils');
 
+var types = TestClient.types;
+var encodings = TestClient.encodings;
+
 var ks = 'bigint_test';
 var table = 'biginttest';
 
@@ -40,7 +43,7 @@ describe('bigint support', function() {
             .then(function() {
                 // Get the writetime value for a column
                 var cql = util.format('SELECT writetime(col1) AS wt FROM %s WHERE key = ?', table);
-                return client.execute(cql, ['row-1']);
+                return client.execute(cql, ['row-1'], {result_types: [types.CASS_VALUE_TYPE_TIMESTAMP | encodings.BIGINT_AS_OBJECT]});
             })
             .then(function(results) {
                 expect(results.rows.length).equal(1);
