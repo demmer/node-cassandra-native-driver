@@ -130,8 +130,8 @@ TypeMapper::bind_statement_param(CassStatement* statement, u_int32_t i,
     case CASS_VALUE_TYPE_BIGINT: {
         // Bigints are passed in as {'low': <lowInt>, 'high': <highInt>}
         Local<Object> obj = value->ToObject();
-        Local<Value> lowKey = NanNew<String>("low", 3);
-        Local<Value> highKey = NanNew<String>("high", 4);
+        Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
+        Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
         int lowVal = obj->Get(lowKey)->ToNumber()->NumberValue();
         int highVal = obj->Get(highKey)->ToNumber()->NumberValue();
 
@@ -220,7 +220,7 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
 {
 
     if (value == NULL || cass_value_is_null(value)) {
-        *result = NanNull();
+        *result = Nan::Null();
         return true;
     }
 
@@ -321,11 +321,11 @@ TypeMapper::v8_from_cassandra(v8::Local<v8::Value>* result, CassValueType type,
         //         "low": <lowValue>,
         //         "high": <highValue>
         //     }
-        Local<Value> lowKey = NanNew<String>("low");
-        Local<Value> highKey = NanNew<String>("high");
-        Local<Value> lowVal = NanNew<Number>((double)low);
-        Local<Value> highVal = NanNew<Number>((double)high);
-        Local<Object> obj = NanNew<Object>();
+        Local<String> lowKey = Nan::New<String>("low").ToLocalChecked();
+        Local<String> highKey = Nan::New<String>("high").ToLocalChecked();
+        Local<Number> lowVal = Nan::New<Number>((double)low);
+        Local<Number> highVal = Nan::New<Number>((double)high);
+        Local<Object> obj = Nan::New<Object>();
         obj->Set(lowKey, lowVal);
         obj->Set(highKey, highVal);
         *result = obj;
