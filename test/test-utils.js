@@ -9,7 +9,7 @@ function cassandra_host() {
 // connects the client to Cassandra and sets up the given keyspace
 // assumes that Cassanra is running on port 9042 of localhost
 function setup_environment(client) {
-    return client.connect({address: cassandra_host()})
+    return client.connect({contactPoints: cassandra_host()})
     .then(function() {
         return client.cleanKeyspace(ks);
     })

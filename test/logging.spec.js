@@ -19,7 +19,7 @@ describe('log callback', function() {
         cassandra.set_log_callback(log_callback);
 
         var c = new cassandra.Client();
-        return c.connectAsync({address: '127.0.0.1', port: 9999})
+        return c.connectAsync({contactPoints: '127.0.0.1', port: 9999})
         .catch(function(err) {
             expect(err.message).equal('No hosts available for the control connection');
             return Promise.delay(500); // return to the event loop
@@ -40,7 +40,7 @@ describe('log callback', function() {
         cassandra.set_log_level("TRACE");
 
         var c = new cassandra.Client();
-        return c.connectAsync({address: '127.0.0.1', port: 9999})
+        return c.connectAsync({contactPoints: '127.0.0.1', port: 9999})
         .catch(function(err) {
             expect(err.message).equal('No hosts available for the control connection');
             return Promise.delay(1); // return to the event loop

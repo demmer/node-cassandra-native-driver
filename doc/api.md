@@ -38,14 +38,14 @@ Options exposes a number of configuration options used to tune the connection to
 
 Connect to the cluster specified by the given options and call the given callback when completed.
 
-* address: (required) comma separated list of one or more addresses to connect to
+* contactPoints: (required) comma separated string containing addresses of one or more hosts in the cluster
 * port: port on which to make the connection
 
 ## execute(query, params, options, callback)
 
 Execute the specified query.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 * callback: (required) callback function
@@ -65,7 +65,7 @@ If `fetchSize` was specified and the results were truncated, then `results.pageS
 
 Execute the specified query.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 * callback: (required) callback function
@@ -89,10 +89,10 @@ Returns an instance of a [Query](#query) object.
 
 Prepare the query for more efficient execution.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * callback: (required) callback function
 
-On completion, calls `callback(err, prepared)`, returning an instance of a [Prepared](#prepared) query.
+On completion, calls `callback(err, prepared)`. If there is no error then prepared contains an instance of a [Prepared](#prepared) query, otherwise `err` indicates the error.
 
 ## new_batch(type)
 
@@ -116,7 +116,7 @@ Query is the underlying object exposed by the C++ node driver for executing quer
 
 Parse the given expression.
 
-* query: (required) the CQL query
+* query: (required) CQL query string
 * params: (optional) data to bind to the query
 * options: (optional) options for the query
 

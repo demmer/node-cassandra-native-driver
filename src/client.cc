@@ -132,17 +132,25 @@ WRAPPED_METHOD(Client, Connect) {
         return Nan::ThrowError("connect requires 2 arguments: options and callback");
     }
 
-    Local<Object> options = info[0].As<Object>();
-    static PersistentString address_str("address");
+    if (!info[0]->IsObject()) {
+        return Nan::ThrowError("connect requires options to be an object");
+    }
+
+    if (!info[1]->IsFunction()) {
+        return Nan::ThrowError("connect requires callback to be a function");
+    }
+
+    Local<Object> options = Nan::To<Object>(info[0]).ToLocalChecked();
+    static PersistentString contact_points_str("contactPoints");
     static PersistentString port_str("port");
 
     int port;
 
-    if (Nan::Has(options, address_str).FromJust()) {
-        String::Utf8Value address(Nan::Get(options, address_str).ToLocalChecked());
-        cass_cluster_set_contact_points(cluster_, *address);
+    if (Nan::Has(options, contact_points_str).FromJust()) {
+        String::Utf8Value contact_points(Nan::Get(options, contact_points_str).ToLocalChecked());
+        cass_cluster_set_contact_points(cluster_, *contact_points);
     } else {
-        return Nan::ThrowError("connect requires a address");
+        return Nan::ThrowError("connect requires contactPoints");
     }
 
     if (Nan::Has(options, port_str).FromJust()) {
