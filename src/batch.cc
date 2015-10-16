@@ -119,18 +119,18 @@ WRAPPED_METHOD(Batch, AddPrepared)
 
     PreparedQuery* prepared = Nan::ObjectWrap::Unwrap<PreparedQuery>(prepared_obj->ToObject());
     Local<Array> params = info[1].As<Array>();
-    Local<Object> hints;
+    Local<Object> param_types;
 
     if (info.Length() > 2) {
-        static PersistentString hints_str("hints");
+        static PersistentString param_types_str("param_types");
         Local<Object> options = info[2].As<Object>();
-        if (Nan::Has(options, hints_str).FromJust()) {
-            hints = Nan::To<v8::Object>(Nan::Get(options, hints_str).ToLocalChecked()).ToLocalChecked();
+        if (Nan::Has(options, param_types_str).FromJust()) {
+            param_types = Nan::To<v8::Object>(Nan::Get(options, param_types_str).ToLocalChecked()).ToLocalChecked();
         }
     }
 
     CassStatement* statement = prepared->prepare_statement();
-    int bindingStatus = TypeMapper::bind_statement_params(statement, params, hints);
+    int bindingStatus = TypeMapper::bind_statement_params(statement, params, param_types);
 
     if (bindingStatus != -1) {
         char err[1024];

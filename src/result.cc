@@ -66,7 +66,14 @@ Result::do_callback(CassFuture* future, Nan::Callback* callback)
         for (size_t i = 0; i < num_columns; ++i) {
             Local<Value> result;
             const CassValue* value = cass_row_get_column(row, i);
-            if (TypeMapper::v8_from_cassandra(&result, column_info_[i]->type_, value))
+
+            u_int32_t type;
+            if (i < type_codes_.size()) {
+                type = type_codes_[i];
+            } else {
+                type = column_info_[i]->type_;
+            }
+            if (TypeMapper::v8_from_cassandra(&result, type, value))
             {
                 Nan::Set(element, Nan::New(column_info_[i]->name_), result);
             }

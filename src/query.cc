@@ -143,13 +143,13 @@ WRAPPED_METHOD(Query, Bind)
 Nan::NAN_METHOD_RETURN_TYPE
 Query::bind(Local<Array>& params, Local<Object>& options)
 {
-    static PersistentString hints_str("hints");
-    Local<Object> hints;
-    if (! options.IsEmpty() && Nan::Has(options, hints_str).FromJust()) {
-        hints = Nan::To<v8::Object>(Nan::Get(options, hints_str).ToLocalChecked()).ToLocalChecked();
+    static PersistentString param_types_str("param_types");
+    Local<Object> param_types;
+    if (! options.IsEmpty() && Nan::Has(options, param_types_str).FromJust()) {
+        param_types = Nan::To<v8::Object>(Nan::Get(options, param_types_str).ToLocalChecked()).ToLocalChecked();
     }
 
-    int bindingStatus = TypeMapper::bind_statement_params(statement_, params, hints);
+    int bindingStatus = TypeMapper::bind_statement_params(statement_, params, param_types);
 
     if (bindingStatus != -1) {
         char err[1024];
@@ -189,8 +189,18 @@ WRAPPED_METHOD(Query, Execute)
     if (Nan::Has(options, fetchSize).FromJust()) {
         paging_size = Nan::Get(options, fetchSize).ToLocalChecked()->Uint32Value();
     }
-
     cass_statement_set_paging_size(statement_, paging_size);
+
+    static PersistentString result_types_str("result_types");
+    Local<Array> result_types;
+    if (! options.IsEmpty() && options->Has(result_types_str)) {
+        result_types = options->Get(result_types_str).As<Array>();
+        std::vector<u_int32_t> types_array;
+        for (u_int32_t i = 0; i < result_types->Length(); ++i) {
+            types_array.push_back(result_types->Get(i)->ToNumber()->Int32Value());
+        }
+        result_.set_column_types(types_array);
+    }
 
     // If there's a result from the previous iteration, update the paging state
     // to fetch the next page and free it.

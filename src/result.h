@@ -16,6 +16,10 @@ public:
     const CassResult* result() { return result_; }
 
     void do_callback(CassFuture* future, Nan::Callback* callback);
+
+    // Override the column types
+    void set_column_types(std::vector<u_int32_t> types) { type_codes_ = types; }
+
 private:
     // Encapsulation of column metadata that can be cached for each row in the
     // results.
@@ -31,6 +35,7 @@ private:
     typedef std::vector<Column*> ColumnInfo;
 
     ColumnInfo column_info_;
+    std::vector<u_int32_t> type_codes_;
     const CassResult* result_;
 };
 
