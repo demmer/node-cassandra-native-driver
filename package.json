@@ -1,6 +1,6 @@
 {
   "name": "cassandra-native-driver",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "node.js addon for the the C++ native cassandra driver",
   "main": "index.js",
   "repository": "https://github.com/jut-io/node-cassandra-native-driver",
