@@ -1,4 +1,4 @@
-var addon = require('./addon');
+var addon = require('./lib/addon');
 
 module.exports = {
     Client: require('./lib/client'),
