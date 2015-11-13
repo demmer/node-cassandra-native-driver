@@ -24,7 +24,7 @@ Basic Usage
 ```
 var cassandra = require('cassandra-native-driver');
 var client = new cassandra.Client(options);
-client.connect({address: "10.0.0.1,10.0.0.2"}, function(err) {
+client.connect({contactPoints: "10.0.0.1,10.0.0.2"}, function(err) {
     var cql = "SELECT email from profile where username = ?";
     client.execute(cql, 'joe', function(err, results) {
         console.log('got email', results.rows[0]);
