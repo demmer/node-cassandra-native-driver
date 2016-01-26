@@ -17,7 +17,7 @@
 #ifndef __CASS_ASYNC_QUEUE_HPP_INCLUDED__
 #define __CASS_ASYNC_QUEUE_HPP_INCLUDED__
 
-#include "common.hpp"
+#include "utils.hpp"
 
 #include <uv.h>
 
@@ -44,6 +44,10 @@ public:
 
   bool enqueue(const typename Q::EntryType& data) {
     if (queue_.enqueue(data)) {
+      // uv_async_send() makes no guarantees about synchronization so it may
+      // be necessary to use a memory fence to make sure stores happen before
+      // the event loop wakes up and runs the async callback.
+      Q::memory_fence();
       uv_async_send(&async_);
       return true;
     }

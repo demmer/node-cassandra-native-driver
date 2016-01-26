@@ -46,6 +46,47 @@ struct TimestampedAverage {
   uint64_t num_measured;
 };
 
+class VersionNumber {
+public:
+  VersionNumber()
+    : major_(0)
+    , minor_(0)
+    , patch_(0) { }
+
+  VersionNumber(int major, int minor, int patch)
+    : major_(major)
+    , minor_(minor)
+    , patch_(patch) { }
+
+  bool operator >=(const VersionNumber& other) const {
+    return compare(other) >= 0;
+  }
+
+  int compare(const VersionNumber& other) const {
+    if (major_ < other.major_) return -1;
+    if (major_ > other.major_) return  1;
+
+    if (minor_ < other.minor_) return -1;
+    if (minor_ > other.minor_) return  1;
+
+    if (patch_ < other.patch_) return -1;
+    if (patch_ > other.patch_) return  1;
+
+    return 0;
+  }
+
+  bool parse(const std::string& version);
+
+  int major() const { return major_; }
+  int minor() const { return minor_; }
+  int patch() const { return patch_; }
+
+private:
+  int major_;
+  int minor_;
+  int patch_;
+};
+
 class Host : public RefCounted<Host> {
 public:
   class StateListener {
@@ -74,7 +115,7 @@ public:
   void set_mark(bool mark) { mark_ = mark; }
 
   const std::string& rack() const { return rack_; }
-  const std::string& dc() const { return dc_; } 
+  const std::string& dc() const { return dc_; }
   void set_rack_and_dc(const std::string& rack, const std::string& dc) {
     rack_ = rack;
     dc_ = dc;
@@ -83,6 +124,11 @@ public:
   const std::string& listen_address() const { return listen_address_; }
   void set_listen_address(const std::string& listen_address) {
     listen_address_ = listen_address;
+  }
+
+  const VersionNumber& cassandra_version() const { return cassandra_version_; }
+  void set_cassaandra_version(const VersionNumber& cassandra_version) {
+    cassandra_version_ = cassandra_version;
   }
 
   bool was_just_added() const { return state() == ADDED; }
@@ -157,6 +203,7 @@ private:
   bool mark_;
   Atomic<HostState> state_;
   std::string listen_address_;
+  VersionNumber cassandra_version_;
   std::string rack_;
   std::string dc_;
 
@@ -167,6 +214,7 @@ private:
 };
 
 typedef std::map<Address, SharedRefPtr<Host> > HostMap;
+typedef std::pair<Address, SharedRefPtr<Host> > HostPair;
 typedef std::vector<SharedRefPtr<Host> > HostVec;
 typedef CopyOnWritePtr<HostVec> CopyOnWriteHostVec;
 

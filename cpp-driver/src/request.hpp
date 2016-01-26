@@ -18,26 +18,54 @@
 #define __CASS_REQUEST_HPP_INCLUDED__
 
 #include "buffer.hpp"
+#include "constants.hpp"
 #include "macros.hpp"
 #include "ref_counted.hpp"
+#include "retry_policy.hpp"
 #include "string_ref.hpp"
+
+#include <stdint.h>
+#include <utility>
+#include <map>
 
 namespace cass {
 
+class Handler;
 class RequestMessage;
+
+class CustomPayload : public RefCounted<CustomPayload> {
+public:
+  virtual ~CustomPayload() { }
+
+  void set(const char* name, size_t name_length,
+           const uint8_t* value, size_t value_size);
+
+  int32_t encode(BufferVec* bufs) const;
+
+private:
+  typedef std::map<std::string, Buffer> ItemMap;
+  ItemMap items_;
+};
 
 class Request : public RefCounted<Request> {
 public:
   enum {
-    ENCODE_ERROR_UNSUPPORTED_PROTOCOL = -1
+    ENCODE_ERROR_UNSUPPORTED_PROTOCOL = -1,
+    ENCODE_ERROR_BATCH_WITH_NAMED_VALUES = -2,
+    ENCODE_ERROR_PARAMETER_UNSET = -3
   };
+
+  static const CassConsistency DEFAULT_CONSISTENCY = CASS_CONSISTENCY_LOCAL_ONE;
+
+  typedef std::map<const void*, Buffer> EncodingCache;
 
   Request(uint8_t opcode)
       : opcode_(opcode)
-      , consistency_(CASS_CONSISTENCY_ONE)
-      , serial_consistency_(CASS_CONSISTENCY_ANY) {}
+      , consistency_(DEFAULT_CONSISTENCY)
+      , serial_consistency_(CASS_CONSISTENCY_ANY)
+      , timestamp_(CASS_INT64_MIN) { }
 
-  virtual ~Request() {}
+  virtual ~Request() { }
 
   uint8_t opcode() const { return opcode_; }
 
@@ -51,12 +79,35 @@ public:
     serial_consistency_ = serial_consistency;
   }
 
-  virtual int encode(int version, BufferVec* bufs) const = 0;
+  int64_t timestamp() const { return timestamp_; }
+
+  void set_timestamp(int64_t timestamp) { timestamp_ = timestamp; }
+
+  RetryPolicy* retry_policy() const {
+    return retry_policy_.get();
+  }
+
+  void set_retry_policy(RetryPolicy* retry_policy) {
+    retry_policy_.reset(retry_policy);
+  }
+
+  const SharedRefPtr<const CustomPayload>& custom_payload() const {
+    return custom_payload_;
+  }
+
+  void set_custom_payload(const CustomPayload* payload) {
+    custom_payload_.reset(payload);
+  }
+
+  virtual int encode(int version, Handler* handler, BufferVec* bufs) const = 0;
 
 private:
   uint8_t opcode_;
   CassConsistency consistency_;
   CassConsistency serial_consistency_;
+  int64_t timestamp_;
+  SharedRefPtr<RetryPolicy> retry_policy_;
+  SharedRefPtr<const CustomPayload> custom_payload_;
 
 private:
   DISALLOW_COPY_AND_ASSIGN(Request);
@@ -71,7 +122,7 @@ public:
     : Request(opcode)
     , keyspace_(keyspace){}
 
-  virtual bool get_routing_key(std::string* routing_key) const = 0;
+  virtual bool get_routing_key(std::string* routing_key, EncodingCache* cache) const = 0;
 
   const std::string& keyspace() const { return keyspace_; }
   void set_keyspace(const std::string& keyspace) { keyspace_ = keyspace; }

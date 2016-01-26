@@ -16,18 +16,17 @@
 
 #include "cluster.hpp"
 
-#include "common.hpp"
 #include "dc_aware_policy.hpp"
 #include "logger.hpp"
 #include "round_robin_policy.hpp"
-#include "types.hpp"
+#include "external_types.hpp"
+#include "utils.hpp"
 
 #include <sstream>
 
 extern "C" {
 
 CassCluster* cass_cluster_new() {
-  cass::Logger::init();
   return CassCluster::to(new cass::Cluster());
 }
 
@@ -47,7 +46,7 @@ void cass_cluster_set_ssl(CassCluster* cluster,
 
 CassError cass_cluster_set_protocol_version(CassCluster* cluster,
                                             int protocol_version) {
-  if (protocol_version != 1 && protocol_version != 2) {
+  if (protocol_version < 1) {
     return CASS_ERROR_LIB_BAD_PARAMS;
   }
   cluster->config().set_protocol_version(protocol_version);
@@ -96,19 +95,11 @@ CassError cass_cluster_set_contact_points_n(CassCluster* cluster,
   if (contact_points_length == 0) {
     cluster->config().contact_points().clear();
   } else {
-    std::istringstream stream(
-          std::string(contact_points, contact_points_length));
-    while (!stream.eof()) {
-      std::string contact_point;
-      std::getline(stream, contact_point, ',');
-      if (!cass::trim(contact_point).empty()) {
-        cluster->config().contact_points().push_back(contact_point);
-      }
-    }
+    cass::explode(std::string(contact_points, contact_points_length),
+      cluster->config().contact_points());
   }
   return CASS_OK;
 }
-
 
 CassError cass_cluster_set_core_connections_per_host(CassCluster* cluster,
                                                      unsigned num_connections) {
@@ -263,6 +254,10 @@ CassError cass_cluster_set_load_balance_dc_aware_n(CassCluster* cluster,
 void cass_cluster_set_token_aware_routing(CassCluster* cluster,
                                           cass_bool_t enabled) {
   cluster->config().set_token_aware_routing(enabled == cass_true);
+  // Token-aware routing relies on up-to-date schema information
+  if (enabled == cass_true) {
+    cluster->config().set_use_schema(true);
+  }
 }
 
 void cass_cluster_set_latency_aware_routing(CassCluster* cluster,
@@ -285,6 +280,26 @@ void cass_cluster_set_latency_aware_routing_settings(CassCluster* cluster,
   cluster->config().set_latency_aware_routing_settings(settings);
 }
 
+void cass_cluster_set_whitelist_filtering(CassCluster* cluster,
+                                          const char* hosts) {
+  size_t hosts_length
+      = hosts == NULL ? 0 : strlen(hosts);
+  cass_cluster_set_whitelist_filtering_n(cluster,
+                                         hosts,
+                                         hosts_length);
+}
+
+void cass_cluster_set_whitelist_filtering_n(CassCluster* cluster,
+                                            const char* hosts,
+                                            size_t hosts_length) {
+  if (hosts_length == 0) {
+    cluster->config().whitelist().clear();
+  } else {
+    cass::explode(std::string(hosts, hosts_length),
+                  cluster->config().whitelist());
+  }
+}
+
 void cass_cluster_set_tcp_nodelay(CassCluster* cluster,
                                   cass_bool_t enabled) {
   cluster->config().set_tcp_nodelay(enabled == cass_true);
@@ -294,6 +309,35 @@ void cass_cluster_set_tcp_keepalive(CassCluster* cluster,
                                     cass_bool_t enabled,
                                     unsigned delay_secs) {
   cluster->config().set_tcp_keepalive(enabled == cass_true, delay_secs);
+}
+
+void cass_cluster_set_connection_heartbeat_interval(CassCluster* cluster,
+                                               unsigned interval_secs) {
+  cluster->config().set_connection_heartbeat_interval_secs(interval_secs);
+}
+
+void cass_cluster_set_connection_idle_timeout(CassCluster* cluster,
+                                               unsigned timeout_secs) {
+  cluster->config().set_connection_idle_timeout_secs(timeout_secs);
+}
+
+void cass_cluster_set_retry_policy(CassCluster* cluster,
+                                   CassRetryPolicy* retry_policy) {
+  cluster->config().set_retry_policy(retry_policy);
+}
+
+void cass_cluster_set_timestamp_gen(CassCluster* cluster,
+                                    CassTimestampGen* timestamp_gen) {
+  cluster->config().set_timestamp_gen(timestamp_gen);
+}
+
+void cass_cluster_set_use_schema(CassCluster* cluster,
+                                 cass_bool_t enabled) {
+  cluster->config().set_use_schema(enabled == cass_true);
+  // Token-aware routing relies on up-to-date schema information
+  if (enabled == cass_false) {
+    cluster->config().set_token_aware_routing(false);
+  }
 }
 
 void cass_cluster_free(CassCluster* cluster) {

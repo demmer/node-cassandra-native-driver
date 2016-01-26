@@ -18,7 +18,7 @@
 
 #include "execute_request.hpp"
 #include "logger.hpp"
-#include "types.hpp"
+#include "external_types.hpp"
 
 extern "C" {
 
@@ -33,29 +33,80 @@ CassStatement* cass_prepared_bind(const CassPrepared* prepared) {
   return CassStatement::to(execute);
 }
 
+CassError cass_prepared_parameter_name(const CassPrepared* prepared,
+                                       size_t index,
+                                       const char** name,
+                                       size_t* name_length) {
+  const cass::SharedRefPtr<cass::ResultMetadata>& metadata(prepared->result()->metadata());
+  if (index >= metadata->column_count()) {
+    return CASS_ERROR_LIB_INDEX_OUT_OF_BOUNDS;
+  }
+  const cass::ColumnDefinition def = metadata->get_column_definition(index);
+  *name = def.name.data();
+  *name_length = def.name.size();
+  return CASS_OK;
+}
+
+const CassDataType* cass_prepared_parameter_data_type(const CassPrepared* prepared,
+                                                      size_t index) {
+  const cass::SharedRefPtr<cass::ResultMetadata>& metadata(prepared->result()->metadata());
+  if (index >= metadata->column_count()) {
+    return NULL;
+  }
+  return CassDataType::to(metadata->get_column_definition(index).data_type.get());
+}
+
+const CassDataType* cass_prepared_parameter_data_type_by_name(const CassPrepared* prepared,
+                                                              const char* name) {
+  return cass_prepared_parameter_data_type_by_name_n(prepared,
+                                                     name, strlen(name));
+}
+
+const CassDataType* cass_prepared_parameter_data_type_by_name_n(const CassPrepared* prepared,
+                                                                const char* name,
+                                                                size_t name_length) {
+
+  const cass::SharedRefPtr<cass::ResultMetadata>& metadata(prepared->result()->metadata());
+
+  cass::IndexVec indices;
+  if (metadata->get_indices(cass::StringRef(name, name_length), &indices) == 0) {
+    return NULL;
+  }
+  return CassDataType::to(metadata->get_column_definition(indices[0]).data_type.get());
+}
+
 } // extern "C"
 
 namespace cass {
 
-Prepared::Prepared(const ResultResponse* result,
+Prepared::Prepared(const SharedRefPtr<ResultResponse>& result,
                    const std::string& statement,
-                   const std::vector<std::string>& key_columns)
-      : result_(result)
-      , id_(result->prepared())
-      , statement_(statement) {
-    ResultMetadata::IndexVec indices;
-    // If the statement has bound parameters find the key indices
-    if (result->column_count() > 0) {
-      for (std::vector<std::string>::const_iterator i = key_columns.begin();
-           i != key_columns.end(); ++i) {
-        if (result->find_column_indices(StringRef(*i), &indices) > 0) {
-          key_indices_.push_back(indices[0]);
-        } else {
-          LOG_WARN("Unable to find key column '%s' in prepared query", i->c_str());
-          key_indices_.clear();
-          break;
+                   const Metadata::SchemaSnapshot& schema_metadata)
+  : result_(result)
+  , id_(result->prepared().to_string())
+  , statement_(statement) {
+  if (schema_metadata.protocol_version() >= 4) {
+    key_indices_ = result->pk_indices();
+  } else {
+    const KeyspaceMetadata* keyspace = schema_metadata.get_keyspace(result->keyspace().to_string());
+    if (keyspace != NULL) {
+      const TableMetadata* table = keyspace->get_table(result->table().to_string());
+      if (table != NULL) {
+        const ColumnMetadata::Vec& partition_key = table->partition_key();
+        IndexVec indices;
+        for (ColumnMetadata::Vec::const_iterator i = partition_key.begin(),
+             end = partition_key.end(); i != end; ++i) {
+          if (result->metadata()->get_indices(StringRef((*i)->name()), &indices) > 0) {
+            key_indices_.push_back(indices[0]);
+          } else {
+            LOG_WARN("Unable to find key column '%s' in prepared query", (*i)->name().c_str());
+            key_indices_.clear();
+            break;
+          }
         }
       }
     }
   }
 }
+
+} // namespace cass
