@@ -21,8 +21,11 @@
 #include "cassandra.h"
 #include "dc_aware_policy.hpp"
 #include "latency_aware_policy.hpp"
+#include "retry_policy.hpp"
 #include "ssl.hpp"
+#include "timestamp_generator.hpp"
 #include "token_aware_policy.hpp"
+#include "whitelist_policy.hpp"
 
 #include <list>
 #include <string>
@@ -33,11 +36,9 @@ void stderr_log_callback(const CassLogMessage* message, void* data);
 
 class Config {
 public:
-  typedef std::list<std::string> ContactPointList;
-
   Config()
       : port_(9042)
-      , protocol_version_(2)
+      , protocol_version_(4)
       , thread_count_io_(1)
       , queue_size_io_(8192)
       , queue_size_event_(8192)
@@ -61,9 +62,14 @@ public:
       , load_balancing_policy_(new DCAwarePolicy())
       , token_aware_routing_(true)
       , latency_aware_routing_(false)
-      , tcp_nodelay_enable_(false)
+      , tcp_nodelay_enable_(true)
       , tcp_keepalive_enable_(false)
-      , tcp_keepalive_delay_secs_(0) {}
+      , tcp_keepalive_delay_secs_(0)
+      , connection_idle_timeout_secs_(60)
+      , connection_heartbeat_interval_secs_(30)
+      , timestamp_gen_(new ServerSideTimestampGenerator())
+      , retry_policy_(new DefaultRetryPolicy())
+      , use_schema_(true) { }
 
   unsigned thread_count_io() const { return thread_count_io_; }
 
@@ -222,8 +228,12 @@ public:
   }
 
   LoadBalancingPolicy* load_balancing_policy() const {
-    // base LBP can be augmented by special wrappers (whitelist, token aware, latency aware)
+    // The base LBP can be augmented by special wrappers (whitelist,
+    // token aware, latency aware)
     LoadBalancingPolicy* chain = load_balancing_policy_->new_instance();
+    if (!whitelist_.empty()) {
+      chain = new WhitelistPolicy(chain, whitelist_);
+    }
     if (token_aware_routing()) {
       chain = new TokenAwarePolicy(chain);
     }
@@ -256,6 +266,10 @@ public:
     latency_aware_routing_settings_ = settings;
   }
 
+  ContactPointList& whitelist() {
+    return whitelist_;
+  }
+
   bool tcp_nodelay_enable() const { return tcp_nodelay_enable_; }
 
   void set_tcp_nodelay(bool enable) {
@@ -268,6 +282,45 @@ public:
   void set_tcp_keepalive(bool enable, unsigned delay_secs) {
     tcp_keepalive_enable_ = enable;
     tcp_keepalive_delay_secs_ = delay_secs;
+  }
+
+  unsigned connection_idle_timeout_secs() const {
+    return connection_idle_timeout_secs_;
+  }
+
+  void set_connection_idle_timeout_secs(unsigned timeout_secs) {
+    connection_idle_timeout_secs_ = timeout_secs;
+  }
+
+  unsigned connection_heartbeat_interval_secs() const {
+    return connection_heartbeat_interval_secs_;
+  }
+
+  void set_connection_heartbeat_interval_secs(unsigned interval_secs) {
+    connection_heartbeat_interval_secs_ = interval_secs;
+  }
+
+  TimestampGenerator* timestamp_gen() const {
+    return timestamp_gen_.get();
+  }
+
+  void set_timestamp_gen(TimestampGenerator* timestamp_gen) {
+    if (timestamp_gen == NULL) return;
+    timestamp_gen_.reset(timestamp_gen);
+  }
+
+  RetryPolicy* retry_policy() const {
+    return retry_policy_.get();
+  }
+
+  void set_retry_policy(RetryPolicy* retry_policy) {
+    if (retry_policy == NULL) return;
+    retry_policy_.reset(retry_policy);
+  }
+
+  bool use_schema() const { return use_schema_; }
+  void set_use_schema(bool enable) {
+    use_schema_ = enable;
   }
 
 private:
@@ -299,9 +352,15 @@ private:
   bool token_aware_routing_;
   bool latency_aware_routing_;
   LatencyAwarePolicy::Settings latency_aware_routing_settings_;
+  ContactPointList whitelist_;
   bool tcp_nodelay_enable_;
   bool tcp_keepalive_enable_;
   unsigned tcp_keepalive_delay_secs_;
+  unsigned connection_idle_timeout_secs_;
+  unsigned connection_heartbeat_interval_secs_;
+  SharedRefPtr<TimestampGenerator> timestamp_gen_;
+  SharedRefPtr<RetryPolicy> retry_policy_;
+  bool use_schema_;
 };
 
 } // namespace cass

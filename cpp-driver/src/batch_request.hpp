@@ -37,33 +37,26 @@ public:
 
   BatchRequest(uint8_t type_)
       : RoutableRequest(CQL_OPCODE_BATCH)
-      , type_(type_)
-      , consistency_(CASS_CONSISTENCY_ONE) {}
+      , type_(type_) { }
 
   uint8_t type() const { return type_; }
 
   const StatementList& statements() const { return statements_; }
 
-  int16_t consistency() const { return consistency_; }
-
-  void set_consistency(int16_t consistency) { consistency_ = consistency; }
-
   void add_statement(Statement* statement);
 
   bool prepared_statement(const std::string& id, std::string* statement) const;
 
-  virtual bool get_routing_key(std::string* routing_key) const;
+  virtual bool get_routing_key(std::string* routing_key, EncodingCache* cache) const;
 
 private:
-  int encode(int version, BufferVec* bufs) const;
-  int encode_v2(BufferVec* bufs) const;
+  int encode(int version, Handler* handler, BufferVec* bufs) const;
 
 private:
   typedef std::map<std::string, ExecuteRequest*> PreparedMap;
 
   uint8_t type_;
   StatementList statements_;
-  int16_t consistency_;
   PreparedMap prepared_statements_;
 };
 

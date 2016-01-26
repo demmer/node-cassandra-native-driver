@@ -23,7 +23,7 @@
 #define __CASS_MPMC_QUEUE_INCLUDED__
 
 #include "atomic.hpp"
-#include "common.hpp"
+#include "utils.hpp"
 #include "macros.hpp"
 
 #include <assert.h>
@@ -129,6 +129,12 @@ public:
     Node* node = &buffer_[pos & mask_];
     size_t node_seq = node->seq.load(MEMORY_ORDER_ACQUIRE);
     return (intptr_t)node_seq - (intptr_t)(pos + 1) < 0;
+  }
+
+  static void memory_fence() {
+#if defined(CASS_USE_BOOST_ATOMIC) || defined(CASS_USE_STD_ATOMIC)
+    atomic_thread_fence(MEMORY_ORDER_SEQ_CST);
+#endif
   }
 
 private:

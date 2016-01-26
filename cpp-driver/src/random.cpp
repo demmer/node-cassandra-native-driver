@@ -36,12 +36,10 @@ namespace cass {
 #if defined(_WIN32)
 
   uint64_t get_random_seed(uint64_t seed) {
-    Logger::init();
-
     HCRYPTPROV provider;
 
-    if (!CryptAcquireContext(&provider, 
-                             NULL, NULL, 
+    if (!CryptAcquireContext(&provider,
+                             NULL, NULL,
                              PROV_RSA_FULL, CRYPT_VERIFYCONTEXT | CRYPT_SILENT)) {
       LOG_CRITICAL("Unable to aqcuire cryptographic provider: 0x%x", GetLastError());
       return seed;
@@ -61,16 +59,20 @@ namespace cass {
 
 #define STRERROR_BUFSIZE_ 256
 
-  uint64_t get_random_seed(uint64_t seed) {
-    Logger::init();
+#if defined(__APPLE__) || defined(__FreeBSD__)
+#define STRERROR_R_(errno, buf, bufsize) (strerror_r(errno, buf, bufsize), buf)
+#else
+#define STRERROR_R_(errno, buf, bufsize) strerror_r(errno, buf, bufsize)
+#endif
 
+  uint64_t get_random_seed(uint64_t seed) {
     static const char* device = "/dev/urandom";
 
     int fd = open(device, O_RDONLY);
 
     if (fd < 0) {
       char buf[STRERROR_BUFSIZE_];
-      char* err = strerror_r(errno, buf, sizeof(buf));
+      char* err = STRERROR_R_(errno, buf, sizeof(buf));
       LOG_CRITICAL("Unable to open random device (%s): %s", device, err);
       return seed;
     }
@@ -78,11 +80,11 @@ namespace cass {
     ssize_t num_bytes = read(fd, reinterpret_cast<char*>(&seed), sizeof(seed));
     if (num_bytes < 0) {
       char buf[STRERROR_BUFSIZE_];
-      char* err = strerror_r(errno, buf, sizeof(buf));
+      char* err = STRERROR_R_(errno, buf, sizeof(buf));
       LOG_CRITICAL("Unable to read from random device (%s): %s", device, err);
     } else if (num_bytes != sizeof(seed)) {
       char buf[STRERROR_BUFSIZE_];
-      char* err = strerror_r(errno, buf, sizeof(buf));
+      char* err = STRERROR_R_(errno, buf, sizeof(buf));
       LOG_CRITICAL("Unable to read full seed value (expected: %u read: %u) "
                    "from random device (%s): %s",
                    static_cast<unsigned int>(sizeof(seed)),

@@ -26,7 +26,7 @@ namespace cass {
 static const CopyOnWriteHostVec NO_HOSTS(new HostVec());
 
 void DCAwarePolicy::init(const SharedRefPtr<Host>& connected_host, const HostMap& hosts) {
-  if (local_dc_.empty() && !connected_host->dc().empty()) {
+  if (local_dc_.empty() && connected_host && !connected_host->dc().empty()) {
     LOG_INFO("Using '%s' for the local data center "
              "(if this is incorrect, please provide the correct data center)",
              connected_host->dc().c_str());
@@ -56,9 +56,10 @@ CassHostDistance DCAwarePolicy::distance(const SharedRefPtr<Host>& host) const {
 }
 
 QueryPlan* DCAwarePolicy::new_query_plan(const std::string& connected_keyspace,
-                                        const Request* request,
-                                        const TokenMap& token_map) {
-  CassConsistency cl = request != NULL ? request->consistency() : CASS_CONSISTENCY_ONE;
+                                         const Request* request,
+                                         const TokenMap& token_map,
+                                         Request::EncodingCache* cache) {
+  CassConsistency cl = request != NULL ? request->consistency() : Request::DEFAULT_CONSISTENCY;
   return new DCAwareQueryPlan(this, cl, index_++);
 }
 

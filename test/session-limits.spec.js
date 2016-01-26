@@ -17,7 +17,7 @@ var key = 'row, col';
 var data = test_utils.generate(100000);
 var client;
 
-describe('session request limits', function() {
+describe.skip('session request limits', function() {
     this.timeout(30000);
     // only usable for debugging this suite, breaks if you run all the tests
     /*var messages = [];

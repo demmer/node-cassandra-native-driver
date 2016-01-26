@@ -17,13 +17,14 @@
 #include "session.hpp"
 
 #include "config.hpp"
+#include "constants.hpp"
 #include "logger.hpp"
 #include "prepare_request.hpp"
 #include "request_handler.hpp"
 #include "resolver.hpp"
 #include "scoped_lock.hpp"
 #include "timer.hpp"
-#include "types.hpp"
+#include "external_types.hpp"
 
 extern "C" {
 
@@ -33,7 +34,7 @@ CassSession* cass_session_new() {
 
 void cass_session_free(CassSession* session) {
   // This attempts to close the session because the joining will
-  // hang indefinately otherwise. This causes minimal delay
+  // hang indefinitely otherwise. This causes minimal delay
   // if the session is already closed.
   cass::SharedRefPtr<cass::Future> future(new cass::SessionFuture());
   session->close_async(future.get(), true);
@@ -91,11 +92,11 @@ CassFuture* cass_session_execute_batch(CassSession* session, const CassBatch* ba
   return CassFuture::to(session->execute(batch->from()));
 }
 
-const CassSchema* cass_session_get_schema(CassSession* session) {
-  return CassSchema::to(session->copy_schema());
+const CassSchemaMeta* cass_session_get_schema_meta(const CassSession* session) {
+  return CassSchemaMeta::to(new cass::Metadata::SchemaSnapshot(session->metadata().schema_snapshot()));
 }
 
-void  cass_session_get_metrics(CassSession* session,
+void  cass_session_get_metrics(const CassSession* session,
                                CassMetrics* metrics) {
   const cass::Metrics* internal_metrics = session->metrics();
 
@@ -162,7 +163,7 @@ void Session::clear(const Config& config) {
   }
   io_workers_.clear();
   request_queue_.reset();
-  cluster_meta_.clear();
+  metadata_.clear();
   control_connection_.clear();
   current_host_mark_ = true;
   pending_resolve_count_ = 0;
@@ -275,7 +276,7 @@ bool Session::notify_down_async(const Address& address) {
 void Session::connect_async(const Config& config, const std::string& keyspace, Future* future) {
   ScopedMutex l(&state_mutex_);
 
-  if (state_ != SESSION_STATE_CLOSED) {
+  if (state_.load(MEMORY_ORDER_RELAXED) != SESSION_STATE_CLOSED) {
     future->set_error(CASS_ERROR_LIB_UNABLE_TO_CONNECT,
                       "Already connecting, connected or closed");
     return;
@@ -300,7 +301,7 @@ void Session::connect_async(const Config& config, const std::string& keyspace, F
 
   LOG_DEBUG("Issued connect event");
 
-  state_ = SESSION_STATE_CONNECTING;
+  state_.store(SESSION_STATE_CONNECTING, MEMORY_ORDER_RELAXED);
   connect_future_.reset(future);
 
   if (!keyspace.empty()) {
@@ -317,14 +318,15 @@ void Session::connect_async(const Config& config, const std::string& keyspace, F
 void Session::close_async(Future* future, bool force) {
   ScopedMutex l(&state_mutex_);
 
-  bool wait_for_connect_to_finish = (force && state_ == SESSION_STATE_CONNECTING);
-  if (state_ != SESSION_STATE_CONNECTED && !wait_for_connect_to_finish) {
+  State state = state_.load(MEMORY_ORDER_RELAXED);
+  bool wait_for_connect_to_finish = (force && state == SESSION_STATE_CONNECTING);
+  if (state != SESSION_STATE_CONNECTED && !wait_for_connect_to_finish) {
     future->set_error(CASS_ERROR_LIB_UNABLE_TO_CLOSE,
                       "Already closing or closed");
     return;
   }
 
-  state_ = SESSION_STATE_CLOSING;
+  state_.store(SESSION_STATE_CLOSING, MEMORY_ORDER_RELAXED);
   close_future_.reset(future);
 
   if (!wait_for_connect_to_finish) {
@@ -351,8 +353,8 @@ void Session::internal_close() {
 
 void Session::notify_connected() {
   ScopedMutex l(&state_mutex_);
-  if (state_ == SESSION_STATE_CONNECTING) {
-    state_ = SESSION_STATE_CONNECTED;
+  if (state_.load(MEMORY_ORDER_RELAXED) == SESSION_STATE_CONNECTING) {
+    state_.store(SESSION_STATE_CONNECTED, MEMORY_ORDER_RELAXED);
   } else { // We recieved a 'force' close event
     internal_close();
   }
@@ -362,7 +364,7 @@ void Session::notify_connected() {
 
 void Session::notify_connect_error(CassError code, const std::string& message) {
   ScopedMutex l(&state_mutex_);
-  state_ = SESSION_STATE_CLOSING;
+  state_.store(SESSION_STATE_CLOSING, MEMORY_ORDER_RELAXED);
   internal_close();
   connect_future_->set_error(code, message);
   connect_future_.reset();
@@ -370,7 +372,7 @@ void Session::notify_connect_error(CassError code, const std::string& message) {
 
 void Session::notify_closed() {
   ScopedMutex l(&state_mutex_);
-  state_ = SESSION_STATE_CLOSED;
+  state_.store(SESSION_STATE_CLOSED, MEMORY_ORDER_RELAXED);
   if (close_future_) {
     close_future_->set();
     close_future_.reset();
@@ -406,8 +408,8 @@ void Session::on_event(const SessionEvent& event) {
     case SessionEvent::CONNECT: {
       int port = config_.port();
 
-      const Config::ContactPointList& contact_points = config_.contact_points();
-      for (Config::ContactPointList::const_iterator it = contact_points.begin(),
+      const ContactPointList& contact_points = config_.contact_points();
+      for (ContactPointList::const_iterator it = contact_points.begin(),
                                                     end = contact_points.end();
            it != end; ++it) {
         const std::string& seed = *it;
@@ -473,7 +475,10 @@ void Session::on_resolve(Resolver* resolver) {
 }
 
 void Session::execute(RequestHandler* request_handler) {
-  if (!request_queue_->enqueue(request_handler)) {
+  if (state_.load(MEMORY_ORDER_ACQUIRE) != SESSION_STATE_CONNECTED) {
+    request_handler->on_error(CASS_ERROR_LIB_NO_HOSTS_AVAILABLE,
+                              "Session is not connected");
+  } else if (!request_queue_->enqueue(request_handler)) {
     request_handler->on_error(CASS_ERROR_LIB_REQUEST_QUEUE_FULL,
                               "The request queue has reached capacity");
   }
@@ -505,11 +510,11 @@ Future* Session::prepare(const char* statement, size_t length) {
   PrepareRequest* prepare = new PrepareRequest();
   prepare->set_query(statement, length);
 
-  ResponseFuture* future = new ResponseFuture(cluster_meta_.schema());
+  ResponseFuture* future = new ResponseFuture(metadata_);
   future->inc_ref(); // External reference
   future->statement.assign(statement, length);
 
-  RequestHandler* request_handler = new RequestHandler(prepare, future);
+  RequestHandler* request_handler = new RequestHandler(prepare, future, NULL);
   request_handler->inc_ref(); // IOWorker reference
 
   execute(request_handler);
@@ -580,10 +585,16 @@ void Session::on_down(SharedRefPtr<Host> host) {
 }
 
 Future* Session::execute(const RoutableRequest* request) {
-  ResponseFuture* future = new ResponseFuture(cluster_meta_.schema());
+  ResponseFuture* future = new ResponseFuture(metadata_);
   future->inc_ref(); // External reference
 
-  RequestHandler* request_handler = new RequestHandler(request, future);
+  RetryPolicy* retry_policy
+      = request->retry_policy() != NULL ? request->retry_policy()
+                                        : config().retry_policy();
+
+  RequestHandler* request_handler = new RequestHandler(request,
+                                                       future,
+                                                       retry_policy);
   request_handler->inc_ref(); // IOWorker reference
 
   execute(request_handler);
@@ -603,7 +614,12 @@ void Session::on_execute(uv_async_t* data) {
   RequestHandler* request_handler = NULL;
   while (session->request_queue_->dequeue(request_handler)) {
     if (request_handler != NULL) {
-      request_handler->set_query_plan(session->new_query_plan(request_handler->request()));
+      request_handler->set_query_plan(session->new_query_plan(request_handler->request(),
+                                                              request_handler->encoding_cache()));
+
+      if (request_handler->timestamp() == CASS_INT64_MIN) {
+        request_handler->set_timestamp(session->config_.timestamp_gen()->next());
+      }
 
       bool is_done = false;
       while (!is_done) {
@@ -643,12 +659,13 @@ void Session::on_execute(uv_async_t* data) {
   }
 }
 
-QueryPlan* Session::new_query_plan(const Request* request) {
+QueryPlan* Session::new_query_plan(const Request* request, Request::EncodingCache* cache) {
   std::string connected_keyspace;
   if (!io_workers_.empty()) {
     connected_keyspace = io_workers_[0]->keyspace();
   }
-  return load_balancing_policy_->new_query_plan(connected_keyspace, request, cluster_meta_.token_map());
+  return load_balancing_policy_->new_query_plan(connected_keyspace, request,
+                                                metadata_.token_map(), cache);
 }
 
 } // namespace cass

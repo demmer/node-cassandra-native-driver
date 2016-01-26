@@ -19,8 +19,8 @@
 
 #include "address.hpp"
 #include "cassandra.h"
-#include "common.hpp"
 #include "string_ref.hpp"
+#include "utils.hpp"
 
 #include <uv.h>
 
@@ -50,6 +50,16 @@ inline char* decode_byte(char* input, uint8_t& output) {
   return input + sizeof(uint8_t);
 }
 
+inline char* encode_int8(char* output, cass_int8_t value) {
+  output[0] = static_cast<char>(value);
+  return output + sizeof(cass_int8_t);
+}
+
+inline char* decode_int8(char* input, cass_int8_t& output) {
+  output = static_cast<cass_int8_t>(input[0]);
+  return input + sizeof(cass_int8_t);
+}
+
 inline void encode_uint16(char* output, uint16_t value) {
   output[0] = static_cast<char>(value >> 8);
   output[1] = static_cast<char>(value >> 0);
@@ -59,6 +69,17 @@ inline char* decode_uint16(char* input, uint16_t& output) {
   output = (static_cast<uint16_t>(static_cast<uint8_t>(input[1])) << 0) |
            (static_cast<uint16_t>(static_cast<uint8_t>(input[0])) << 8);
   return input + sizeof(uint16_t);
+}
+
+inline void encode_int16(char* output, int16_t value) {
+  output[0] = static_cast<char>(value >> 8);
+  output[1] = static_cast<char>(value >> 0);
+}
+
+inline char* decode_int16(char* input, int16_t& output) {
+  output = (static_cast<int16_t>(static_cast<uint8_t>(input[1])) << 0) |
+           (static_cast<int16_t>(static_cast<uint8_t>(input[0])) << 8);
+  return input + sizeof(int16_t);
 }
 
 inline void encode_int32(char* output, int32_t value) {
@@ -74,6 +95,21 @@ inline char* decode_int32(char* input, int32_t& output) {
            (static_cast<int32_t>(static_cast<uint8_t>(input[1])) << 16) |
            (static_cast<int32_t>(static_cast<uint8_t>(input[0])) << 24);
   return input + sizeof(int32_t);
+}
+
+inline void encode_uint32(char* output, uint32_t value) {
+  output[0] = static_cast<char>(value >> 24);
+  output[1] = static_cast<char>(value >> 16);
+  output[2] = static_cast<char>(value >> 8);
+  output[3] = static_cast<char>(value >> 0);
+}
+
+inline char* decode_uint32(char* input, uint32_t& output) {
+  output = (static_cast<uint32_t>(static_cast<uint8_t>(input[3])) << 0) |
+           (static_cast<uint32_t>(static_cast<uint8_t>(input[2])) << 8) |
+           (static_cast<uint32_t>(static_cast<uint8_t>(input[1])) << 16) |
+           (static_cast<uint32_t>(static_cast<uint8_t>(input[0])) << 24);
+  return input + sizeof(uint32_t);
 }
 
 inline void encode_int64(char* output, cass_int64_t value) {
@@ -147,7 +183,7 @@ inline char* decode_string(char* input, char** output, size_t& size) {
   return pos + string_size;
 }
 
-inline char* decode_string_ref(char* buffer, StringRef* output) {
+inline char* decode_string(char* buffer, StringRef* output) {
   char* str;
   size_t str_size;
   buffer = decode_string(buffer, &str, str_size);
@@ -176,6 +212,14 @@ inline char* decode_bytes(char* input, char** output, size_t& size) {
     size = bytes_size;
     return pos + size;
   }
+}
+
+inline char* decode_bytes(char* buffer, StringRef* output) {
+  char* bytes;
+  size_t bytes_size;
+  buffer = decode_bytes(buffer, &bytes, bytes_size);
+  *output = StringRef(bytes, bytes_size);
+  return buffer;
 }
 
 inline char* decode_inet(char* input, Address* output) {
@@ -230,6 +274,19 @@ inline char* decode_stringlist(char* input, std::list<std::string>& output) {
     output.push_back(std::string(s, s_size));
   }
   return buffer;
+}
+
+inline char* decode_stringlist(char* input, StringRefVec& output) {
+  output.clear();
+  uint16_t len = 0;
+  char* pos = decode_uint16(input, len);
+  output.reserve(len);
+  for (int i = 0; i < len; i++) {
+    StringRef s;
+    pos = decode_string(pos, &s);
+    output.push_back(s);
+  }
+  return pos;
 }
 
 typedef std::map<std::string, std::list<std::string> > StringMultimap;
@@ -304,6 +361,18 @@ inline char* decode_uuid(char* input, CassUuid* output) {
     output->clock_seq_and_node |= static_cast<uint64_t>(static_cast<uint8_t>(input[15 - i])) << (8 * i);
   }
   return input + 16;
+}
+
+inline char* decode_size(int protocol_version, char* input, int32_t& size) {
+  char* pos;
+  if (protocol_version >= 3) {
+    pos = decode_int32(input, size);
+  } else {
+    uint16_t temp;
+    pos = decode_uint16(input, temp);
+    size = temp;
+  }
+  return pos;
 }
 
 } // namespace cass

@@ -30,7 +30,7 @@ describe('log callback', function() {
             expect(messages[0].severity).equal('ERROR');
             expect(messages[1].message).match(/had the following error on startup/);
             expect(messages[1].severity).equal('ERROR');
-            expect(messages[2].message).match(/Lost connection/);
+            expect(messages[2].message).match(/Lost control connection/);
             expect(messages[2].severity).equal('WARN');
             reset();
         });

@@ -31,14 +31,14 @@ class Response;
 
 class MultipleRequestHandler : public RefCounted<MultipleRequestHandler> {
 public:
-  typedef std::vector<Response*> ResponseVec;
+  typedef std::vector<SharedRefPtr<Response> > ResponseVec;
 
   MultipleRequestHandler(Connection* connection)
     : connection_(connection)
     , has_errors_or_timeouts_(false)
-    , remaining_(0) {}
+    , remaining_(0) { }
 
-  virtual ~MultipleRequestHandler();
+  virtual ~MultipleRequestHandler() { }
 
   void execute_query(const std::string& query);
 
@@ -53,14 +53,10 @@ public:
 private:
   class InternalHandler : public Handler {
   public:
-    InternalHandler(MultipleRequestHandler* parent, Request* request, int index)
-      : parent_(parent)
-      , request_(request)
-      , index_(index) {}
-
-    const Request* request() const {
-      return request_.get();
-    }
+    InternalHandler(MultipleRequestHandler* parent, const Request* request, int index)
+      : Handler(request)
+      , parent_(parent)
+      , index_(index) { }
 
     virtual void on_set(ResponseMessage* response);
     virtual void on_error(CassError code, const std::string& message);
@@ -68,7 +64,6 @@ private:
 
   private:
     ScopedRefPtr<MultipleRequestHandler> parent_;
-    ScopedRefPtr<Request> request_;
     int index_;
   };
 

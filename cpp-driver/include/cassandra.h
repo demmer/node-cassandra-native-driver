@@ -20,7 +20,7 @@
 #include <stddef.h>
 
 #if !defined(CASS_STATIC)
-#  if defined(_WIN32)
+#  if (defined(WIN32) || defined(_WIN32))
 #    if defined(CASS_BUILDING)
 #      define CASS_EXPORT __declspec(dllexport)
 #    else
@@ -35,6 +35,14 @@
 #define CASS_EXPORT
 #endif
 
+#if defined(_MSC_VER)
+#  define CASS_DEPRECATED(func) __declspec(deprecated) func
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER)
+#  define CASS_DEPRECATED(func) func __attribute__((deprecated))
+#else
+#  define CASS_DEPRECATED(func) func
+#endif
+
 /**
  * @file include/cassandra.h
  *
@@ -43,8 +51,8 @@
  */
 
 #define CASS_VERSION_MAJOR 2
-#define CASS_VERSION_MINOR 0
-#define CASS_VERSION_PATCH 0
+#define CASS_VERSION_MINOR 2
+#define CASS_VERSION_PATCH 2
 #define CASS_VERSION_SUFFIX ""
 
 #ifdef __cplusplus
@@ -107,12 +115,12 @@ typedef cass_uint8_t cass_byte_t;
 typedef cass_uint64_t cass_duration_t;
 
 /**
- * The size of a IPv4 address
+ * The size of an IPv4 address
  */
 #define CASS_INET_V4_LENGTH 4
 
 /**
- * The size of a IPv6 address
+ * The size of an IPv6 address
  */
 #define CASS_INET_V6_LENGTH 16
 
@@ -138,7 +146,7 @@ typedef struct CassInet_ {
 } CassInet;
 
 /**
- * The size of a hexidecimal UUID string including a null terminator.
+ * The size of a hexadecimal UUID string including a null terminator.
  */
 #define CASS_UUID_STRING_LENGTH 37
 
@@ -159,7 +167,7 @@ typedef struct CassUuid_ {
   /**
    * Represents the clock sequence and the node part of a UUID. The most
    * significant 16 bits represent the clock sequence (except for the most
-   * significant bit which is always set) and the bottom 48 bits respresent
+   * significant bit which is always set) and the bottom 48 bits represent
    * the node part. For version 1 (time-based) the clock sequence part is randomly
    * generated and the node part can be explicitly set, otherwise, it's generated
    * from node unique information. For version 4 both the clock sequence and the node
@@ -193,7 +201,7 @@ typedef struct CassSession_ CassSession;
  * @struct CassStatement
  *
  * A statement object is an executable query. It represents either a regular
- * (adhoc) statment or a prepared statement. It maitains the queries' parameter
+ * (adhoc) statement or a prepared statement. It maintains the queries' parameter
  * values along with query options (consistency level, paging state, etc.)
  *
  * <b>Note:</b> Parameters for regular queries are not supported by the binary protocol
@@ -244,6 +252,13 @@ typedef struct CassPrepared_ CassPrepared;
 typedef struct CassResult_ CassResult;
 
 /**
+ * @struct CassErrorResult
+ *
+ * A error result of a request
+ */
+typedef struct CassErrorResult_ CassErrorResult;
+
+/**
  * @struct CassIterator
  *
  * An object used to iterate over a group of rows, columns or collection values.
@@ -265,11 +280,43 @@ typedef struct CassRow_ CassRow;
 typedef struct CassValue_ CassValue;
 
 /**
+ * @struct CassDataType
+ *
+ * A data type used to describe a value, collection or
+ * user defined type.
+ */
+typedef struct CassDataType_ CassDataType;
+
+/**
+ * @struct CassFunctionMeta
+ */
+typedef struct CassFunctionMeta_ CassFunctionMeta;
+
+/**
+ * @struct CassAggregateMeta
+ */
+typedef struct CassAggregateMeta_ CassAggregateMeta;
+
+/**
  * @struct CassCollection
  *
- *  A collection of primitive values.
+ *  A collection of values.
  */
 typedef struct CassCollection_ CassCollection;
+
+/**
+ * @struct CassTuple
+ *
+ *  A tuple of values.
+ */
+typedef struct CassTuple_ CassTuple;
+
+/**
+ * @struct CassUserType
+ *
+ *  A user defined type.
+ */
+typedef struct CassUserType_ CassUserType;
 
 /**
  * @struct CassSsl
@@ -279,25 +326,32 @@ typedef struct CassCollection_ CassCollection;
 typedef struct CassSsl_ CassSsl;
 
 /**
- * @struct CassSchema
- *
- * A snapshot of the cluster's schema metadata.
- */
-typedef struct CassSchema_ CassSchema;
-
-/**
  * @struct CassSchemaMeta
  *
- * Table/Column schema metdata.
+ * A snapshot of the schema's metadata.
  */
 typedef struct CassSchemaMeta_ CassSchemaMeta;
 
 /**
- * @struct CassSchemaMetaField
+ * @struct CassKeyspaceMeta
  *
- * Key/Value metadata field for a keyspace, table, or column.
+ * Keyspace metadata
  */
-typedef struct CassSchemaMetaField_ CassSchemaMetaField;
+typedef struct CassKeyspaceMeta_ CassKeyspaceMeta;
+
+/**
+ * @struct CassTableMeta
+ *
+ * Table metadata
+ */
+typedef struct CassTableMeta_ CassTableMeta;
+
+/**
+ * @struct CassColumnMeta
+ *
+ * Column metadata
+ */
+typedef struct CassColumnMeta_ CassColumnMeta;
 
 /**
  * @struct CassUuidGen
@@ -307,6 +361,27 @@ typedef struct CassSchemaMetaField_ CassSchemaMetaField;
  * Instances of the UUID generator object are thread-safe to generate UUIDs.
  */
 typedef struct CassUuidGen_ CassUuidGen;
+
+/**
+ * Policies that defined the behavior of a request when a server-side
+ * read/write timeout or unavailable error occurs.
+ *
+ * Generators of client-side, microsecond-precision timestamps.
+ *
+ * @struct CassTimestampGen
+ *
+ */
+typedef struct CassTimestampGen_ CassTimestampGen;
+
+/**
+ * @struct CassRetryPolicy
+ */
+typedef struct CassRetryPolicy_ CassRetryPolicy;
+
+/**
+ * @struct CassCustomPayload
+ */
+typedef struct CassCustomPayload_ CassCustomPayload;
 
 /**
  * @struct CassMetrics
@@ -347,6 +422,7 @@ typedef struct CassMetrics_ {
 } CassMetrics;
 
 typedef enum CassConsistency_ {
+  CASS_CONSISTENCY_UNKNOWN      = 0xFFFF,
   CASS_CONSISTENCY_ANY          = 0x0000,
   CASS_CONSISTENCY_ONE          = 0x0001,
   CASS_CONSISTENCY_TWO          = 0x0002,
@@ -359,6 +435,38 @@ typedef enum CassConsistency_ {
   CASS_CONSISTENCY_LOCAL_SERIAL = 0x0009,
   CASS_CONSISTENCY_LOCAL_ONE    = 0x000A
 } CassConsistency;
+
+#define CASS_CONSISTENCY_MAP(XX) \
+  XX(CASS_CONSISTENCY_UNKNOWN, "UNKNOWN") \
+  XX(CASS_CONSISTENCY_ANY, "ANY") \
+  XX(CASS_CONSISTENCY_ONE, "ONE") \
+  XX(CASS_CONSISTENCY_TWO, "TWO") \
+  XX(CASS_CONSISTENCY_THREE, "THREE") \
+  XX(CASS_CONSISTENCY_QUORUM, "QUORUM") \
+  XX(CASS_CONSISTENCY_ALL, "ALL") \
+  XX(CASS_CONSISTENCY_LOCAL_QUORUM, "LOCAL_QUORUM") \
+  XX(CASS_CONSISTENCY_EACH_QUORUM, "EACH_QUORUM") \
+  XX(CASS_CONSISTENCY_SERIAL, "SERIAL") \
+  XX(CASS_CONSISTENCY_LOCAL_SERIAL, "LOCAL_SERIAL") \
+  XX(CASS_CONSISTENCY_LOCAL_ONE, "LOCAL_ONE")
+
+typedef enum CassWriteType_ {
+  CASS_WRITE_TYPE_UKNOWN,
+  CASS_WRITE_TYPE_SIMPLE,
+  CASS_WRITE_TYPE_BATCH,
+  CASS_WRITE_TYPE_UNLOGGED_BATCH,
+  CASS_WRITE_TYPE_COUNTER,
+  CASS_WRITE_TYPE_BATCH_LOG,
+  CASS_WRITE_TYPE_CAS
+} CassWriteType;
+
+#define CASS_WRITE_TYPE_MAP(XX) \
+  XX(CASS_WRITE_TYPE_SIMPLE, "SIMPLE") \
+  XX(CASS_WRITE_TYPE_BATCH, "BATCH") \
+  XX(CASS_WRITE_TYPE_UNLOGGED_BATCH, "UNLOGGED_BATCH") \
+  XX(CASS_WRITE_TYPE_COUNTER, "COUNTER") \
+  XX(CASS_WRITE_TYPE_BATCH_LOG, "BATCH_LOG") \
+  XX(CASS_WRITE_TYPE_CAS, "CAS")
 
 typedef enum CassValueType_ {
   CASS_VALUE_TYPE_UNKNOWN   = 0xFFFF,
@@ -379,9 +487,18 @@ typedef enum CassValueType_ {
   CASS_VALUE_TYPE_VARINT    = 0x000E,
   CASS_VALUE_TYPE_TIMEUUID  = 0x000F,
   CASS_VALUE_TYPE_INET      = 0x0010,
+  CASS_VALUE_TYPE_DATE      = 0x0011,
+  CASS_VALUE_TYPE_TIME      = 0x0012,
+  CASS_VALUE_TYPE_SMALL_INT = 0x0013,
+  CASS_VALUE_TYPE_TINY_INT  = 0x0014,
   CASS_VALUE_TYPE_LIST      = 0x0020,
   CASS_VALUE_TYPE_MAP       = 0x0021,
-  CASS_VALUE_TYPE_SET       = 0x0022
+  CASS_VALUE_TYPE_SET       = 0x0022,
+  CASS_VALUE_TYPE_UDT       = 0x0030,
+  CASS_VALUE_TYPE_TUPLE     = 0x0031,
+  /* @cond IGNORE */
+  CASS_VALUE_TYPE_LAST_ENTRY
+  /* @endcond */
 } CassValueType;
 
 typedef enum CassCollectionType_ {
@@ -401,15 +518,16 @@ typedef enum CassIteratorType_ {
   CASS_ITERATOR_TYPE_ROW,
   CASS_ITERATOR_TYPE_COLLECTION,
   CASS_ITERATOR_TYPE_MAP,
-  CASS_ITERATOR_TYPE_SCHEMA_META,
-  CASS_ITERATOR_TYPE_SCHEMA_META_FIELD
+  CASS_ITERATOR_TYPE_TUPLE,
+  CASS_ITERATOR_TYPE_USER_TYPE_FIELD,
+  CASS_ITERATOR_TYPE_META_FIELD,
+  CASS_ITERATOR_TYPE_KEYSPACE_META,
+  CASS_ITERATOR_TYPE_TABLE_META,
+  CASS_ITERATOR_TYPE_TYPE_META,
+  CASS_ITERATOR_TYPE_FUNCTION_META,
+  CASS_ITERATOR_TYPE_AGGREGATE_META,
+  CASS_ITERATOR_TYPE_COLUMN_META
 } CassIteratorType;
-
-typedef enum CassSchemaMetaType_ {
-  CASS_SCHEMA_META_TYPE_KEYSPACE,
-  CASS_SCHEMA_META_TYPE_TABLE,
-  CASS_SCHEMA_META_TYPE_COLUMN
-} CassSchemaMetaType;
 
 #define CASS_LOG_LEVEL_MAP(XX) \
   XX(CASS_LOG_DISABLED, "") \
@@ -430,10 +548,18 @@ typedef enum CassLogLevel_ {
 } CassLogLevel;
 
 typedef enum CassSslVerifyFlags {
-  CASS_SSL_VERIFY_NONE          = 0,
-  CASS_SSL_VERIFY_PEER_CERT     = 1,
-  CASS_SSL_VERIFY_PEER_IDENTITY = 2
+  CASS_SSL_VERIFY_NONE,
+  CASS_SSL_VERIFY_PEER_CERT,
+  CASS_SSL_VERIFY_PEER_IDENTITY
 } CassSslVerifyFlags;
+
+typedef enum CassColumnType_ {
+  CASS_COLUMN_TYPE_REGULAR,
+  CASS_COLUMN_TYPE_PARTITION_KEY,
+  CASS_COLUMN_TYPE_CLUSTERING_KEY,
+  CASS_COLUMN_TYPE_STATIC,
+  CASS_COLUMN_TYPE_COMPACT_VALUE
+} CassColumnType;
 
 typedef enum  CassErrorSource_ {
   CASS_ERROR_SOURCE_NONE,
@@ -467,6 +593,10 @@ typedef enum  CassErrorSource_ {
   XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_NOT_IMPLEMENTED, 21, "Not implemented") \
   XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_UNABLE_TO_CONNECT, 22, "Unable to connect") \
   XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_UNABLE_TO_CLOSE, 23, "Unable to close") \
+  XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_NO_PAGING_STATE, 24, "No paging state") \
+  XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_PARAMETER_UNSET, 25, "Parameter unset") \
+  XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_INVALID_ERROR_RESULT_TYPE, 26, "Invalid error result type") \
+  XX(CASS_ERROR_SOURCE_LIB, CASS_ERROR_LIB_INVALID_FUTURE_TYPE, 27, "Invalid future type") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_SERVER_ERROR, 0x0000, "Server error") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_PROTOCOL_ERROR, 0x000A, "Protocol error") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_BAD_CREDENTIALS, 0x0100, "Bad credentials") \
@@ -476,6 +606,9 @@ typedef enum  CassErrorSource_ {
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_TRUNCATE_ERROR, 0x1003, "Truncate error") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_WRITE_TIMEOUT, 0x1100, "Write timeout") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_READ_TIMEOUT, 0x1200, "Read timeout") \
+  XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_READ_FAILURE, 0x1300, "Read failure") \
+  XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_FUNCTION_FAILURE, 0x1400, "Function failure") \
+  XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_WRITE_FAILURE, 0x1500, "Write failure") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_SYNTAX_ERROR, 0x2000, "Syntax error") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_UNAUTHORIZED, 0x2100, "Unauthorized") \
   XX(CASS_ERROR_SOURCE_SERVER, CASS_ERROR_SERVER_INVALID_QUERY, 0x2200, "Invalid query") \
@@ -486,7 +619,8 @@ typedef enum  CassErrorSource_ {
   XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_INVALID_PRIVATE_KEY, 2, "Unable to load private key") \
   XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_NO_PEER_CERT, 3, "No peer certificate")  \
   XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_INVALID_PEER_CERT, 4, "Invalid peer certificate") \
-  XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_IDENTITY_MISMATCH, 5, "Certificate does not match host or IP address")
+  XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_IDENTITY_MISMATCH, 5, "Certificate does not match host or IP address") \
+  XX(CASS_ERROR_SOURCE_SSL, CASS_ERROR_SSL_PROTOCOL_ERROR, 6, "Protocol error")
 
 #define CASS_ERROR(source, code) ((source << 24) | code)
 
@@ -614,7 +748,7 @@ cass_cluster_set_contact_points_n(CassCluster* cluster,
 /**
  * Sets the port.
  *
- * Default: 9042
+ * <b>Default:</b> 9042
  *
  * @public @memberof CassCluster
  *
@@ -641,10 +775,10 @@ cass_cluster_set_ssl(CassCluster* cluster,
                      CassSsl* ssl);
 
 /**
- * Sets the protocol version. This will automatically downgrade if to
- * protocol version 1.
+ * Sets the protocol version. This will automatically downgrade to the lowest
+ * supported protocol version.
  *
- * Default: 2
+ * <b>Default:</b> 4
  *
  * @public @memberof CassCluster
  *
@@ -660,7 +794,7 @@ cass_cluster_set_protocol_version(CassCluster* cluster,
  * Sets the number of IO threads. This is the number of threads
  * that will handle query requests.
  *
- * Default: 1
+ * <b>Default:</b> 1
  *
  * @public @memberof CassCluster
  *
@@ -673,10 +807,10 @@ cass_cluster_set_num_threads_io(CassCluster* cluster,
                                 unsigned num_threads);
 
 /**
- * Sets the size of the the fixed size queue that stores
+ * Sets the size of the fixed size queue that stores
  * pending requests.
  *
- * Default: 4096
+ * <b>Default:</b> 8192
  *
  * @public @memberof CassCluster
  *
@@ -689,10 +823,10 @@ cass_cluster_set_queue_size_io(CassCluster* cluster,
                                unsigned queue_size);
 
 /**
- * Sets the size of the the fixed size queue that stores
+ * Sets the size of the fixed size queue that stores
  * events.
  *
- * Default: 4096
+ * <b>Default:</b> 8192
  *
  * @public @memberof CassCluster
  *
@@ -705,10 +839,10 @@ cass_cluster_set_queue_size_event(CassCluster* cluster,
                                   unsigned queue_size);
 
 /**
- * Sets the size of the the fixed size queue that stores
+ * Sets the size of the fixed size queue that stores
  * log messages.
  *
- * Default: 4096
+ * <b>Default:</b> 8192
  *
  * @public @memberof CassCluster
  *
@@ -724,7 +858,7 @@ cass_cluster_set_queue_size_log(CassCluster* cluster,
  * Sets the number of connections made to each server in each
  * IO thread.
  *
- * Default: 1
+ * <b>Default:</b> 1
  *
  * @public @memberof CassCluster
  *
@@ -740,7 +874,7 @@ cass_cluster_set_core_connections_per_host(CassCluster* cluster,
  * Sets the maximum number of connections made to each server in each
  * IO thread.
  *
- * Default: 2
+ * <b>Default:</b> 2
  *
  * @public @memberof CassCluster
  *
@@ -755,7 +889,7 @@ cass_cluster_set_max_connections_per_host(CassCluster* cluster,
 /**
  * Sets the amount of time to wait before attempting to reconnect.
  *
- * Default: 2000 milliseconds
+ * <b>Default:</b> 2000 milliseconds
  *
  * @public @memberof CassCluster
  *
@@ -771,7 +905,7 @@ cass_cluster_set_reconnect_wait_time(CassCluster* cluster,
  * Connections are created when the current connections are unable to keep up with
  * request throughput.
  *
- * Default: 1
+ * <b>Default:</b> 1
  *
  * @public @memberof CassCluster
  *
@@ -788,7 +922,7 @@ cass_cluster_set_max_concurrent_creation(CassCluster* cluster,
  * on a connection before creating a new connection. The number of new connections
  * created will not exceed max_connections_per_host.
  *
- * Default: 100
+ * <b>Default:</b> 100
  *
  * @public @memberof CassCluster
  *
@@ -804,7 +938,7 @@ cass_cluster_set_max_concurrent_requests_threshold(CassCluster* cluster,
  * Sets the maximum number of requests processed by an IO worker
  * per flush.
  *
- * Default: 128
+ * <b>Default:</b> 128
  *
  * @public @memberof CassCluster
  *
@@ -821,7 +955,7 @@ cass_cluster_set_max_requests_per_flush(CassCluster* cluster,
  * on a connection. Disables writes to a connection if the number
  * of bytes queued exceed this value.
  *
- * Default: 64 KB
+ * <b>Default:</b> 64 KB
  *
  * @public @memberof CassCluster
  *
@@ -838,7 +972,7 @@ cass_cluster_set_write_bytes_high_water_mark(CassCluster* cluster,
  * connection. After exceeding high water mark bytes, writes will
  * only resume once the number of bytes fall below this value.
  *
- * Default: 32 KB
+ * <b>Default:</b> 32 KB
  *
  * @public @memberof CassCluster
  *
@@ -856,7 +990,7 @@ cass_cluster_set_write_bytes_low_water_mark(CassCluster* cluster,
  * host on an IO worker if the number of requests queued exceed this
  * value.
  *
- * Default: 128 * max_connections_per_host
+ * <b>Default:</b> 256
  *
  * @public @memberof CassCluster
  *
@@ -874,7 +1008,7 @@ cass_cluster_set_pending_requests_high_water_mark(CassCluster* cluster,
  * requests, writes to a host will only resume once the number of requests
  * fall below this value.
  *
- * Default: 64 * max_connections_per_host
+ * <b>Default:</b> 128
  *
  * @public @memberof CassCluster
  *
@@ -889,7 +1023,7 @@ cass_cluster_set_pending_requests_low_water_mark(CassCluster* cluster,
 /**
  * Sets the timeout for connecting to a node.
  *
- * Default: 5000 milliseconds
+ * <b>Default:</b> 5000 milliseconds
  *
  * @public @memberof CassCluster
  *
@@ -903,7 +1037,7 @@ cass_cluster_set_connect_timeout(CassCluster* cluster,
 /**
  * Sets the timeout for waiting for a response from a node.
  *
- * Default: 12000 milliseconds
+ * <b>Default:</b> 12000 milliseconds
  *
  * @public @memberof CassCluster
  *
@@ -1015,9 +1149,13 @@ cass_cluster_set_load_balance_dc_aware_n(CassCluster* cluster,
                                          cass_bool_t allow_remote_dcs_for_local_cl);
 
 /**
- * Configures the cluster to use token-aware request routing, or not.
+ * Configures the cluster to use token-aware request routing or not.
  *
- * Default is cass_true (enabled).
+ * <b>Important:</b> Token-aware routing depends on keyspace information.
+ * For this reason enabling token-aware routing will also enable the usage
+ * of schema metadata.
+ *
+ * <b>Default:</b> cass_true (enabled).
  *
  * This routing policy composes the base routing policy, routing
  * requests first to replicas on nodes considered 'local' by
@@ -1027,6 +1165,8 @@ cass_cluster_set_load_balance_dc_aware_n(CassCluster* cluster,
  *
  * @param[in] cluster
  * @param[in] enabled
+ *
+ * @see cass_cluster_set_use_schema();
  */
 CASS_EXPORT void
 cass_cluster_set_token_aware_routing(CassCluster* cluster,
@@ -1034,9 +1174,9 @@ cass_cluster_set_token_aware_routing(CassCluster* cluster,
 
 
 /**
- * Configures the cluster to use latency-aware request routing, or not.
+ * Configures the cluster to use latency-aware request routing or not.
  *
- * Default is cass_false (disabled).
+ * <b>Default:</b> cass_false (disabled).
  *
  * This routing policy is a top-level routing policy. It uses the
  * base routing policy to determine locality (dc-aware) and/or
@@ -1054,7 +1194,7 @@ cass_cluster_set_latency_aware_routing(CassCluster* cluster,
 /**
  * Configures the settings for latency-aware request routing.
  *
- * Defaults:
+ * <b>Defaults:</b>
  *
  * <ul>
  *   <li>exclusion_threshold: 2.0</li>
@@ -1087,9 +1227,51 @@ cass_cluster_set_latency_aware_routing_settings(CassCluster* cluster,
                                                 cass_uint64_t min_measured);
 
 /**
+ * Sets/Appends whitelist hosts. The first call sets the whitelist hosts and
+ * any subsequent calls appends additional hosts. Passing an empty string will
+ * clear and disable the whitelist. White space is striped from the hosts.
+ *
+ * This policy filters requests to all other policies, only allowing requests
+ * to the hosts contained in the whitelist. Any host not in the whitelist will
+ * be ignored and a connection will not be established. This policy is useful
+ * for ensuring that the driver will only connect to a predefined set of hosts.
+ *
+ * Examples: "127.0.0.1" "127.0.0.1,127.0.0.2", "server1.domain.com"
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] hosts A comma delimited list of addresses or names. An empty
+ * string will clear the whitelist hosts. The string is copied into the cluster
+ * configuration; the memory pointed to by this parameter can be freed after
+ * this call.
+ */
+CASS_EXPORT void
+cass_cluster_set_whitelist_filtering(CassCluster* cluster,
+                                     const char* hosts);
+
+/**
+ * Same as cass_cluster_set_whitelist_filtering_hosts(), but with lengths for
+ * string parameters.
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] hosts
+ * @param[in] hosts_length
+ * @return same as cass_cluster_set_whitelist_filtering_hosts()
+ *
+ * @see cass_cluster_set_whitelist_filtering_hosts()
+ */
+CASS_EXPORT void
+cass_cluster_set_whitelist_filtering_n(CassCluster* cluster,
+                                       const char* hosts,
+                                       size_t hosts_length);
+
+/**
  * Enable/Disable Nagel's algorithm on connections.
  *
- * Default: cass_false (disabled).
+ * <b>Default:</b> cass_true (disables Nagel's algorithm).
  *
  * @public @memberof CassCluster
  *
@@ -1103,7 +1285,7 @@ cass_cluster_set_tcp_nodelay(CassCluster* cluster,
 /**
  * Enable/Disable TCP keep-alive
  *
- * Default: cass_false (disabled).
+ * <b>Default:</b> cass_false (disabled).
  *
  * @public @memberof CassCluster
  *
@@ -1116,6 +1298,100 @@ CASS_EXPORT void
 cass_cluster_set_tcp_keepalive(CassCluster* cluster,
                                cass_bool_t enabled,
                                unsigned delay_secs);
+/**
+ * Sets the timestamp generator used to assign timestamps to all requests
+ * unless overridden by setting the timestamp on a statement or a batch.
+ *
+ * <b>Default:</b> server-side timestamp generator.
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] timestamp_gen
+ *
+ * @see cass_statement_set_timestamp()
+ * @see cass_batch_set_timestamp()
+ */
+CASS_EXPORT void
+cass_cluster_set_timestamp_gen(CassCluster* cluster,
+                               CassTimestampGen* timestamp_gen);
+
+/**
+ * Sets the amount of time between heartbeat messages and controls the amount
+ * of time the connection must be idle before sending heartbeat messages. This
+ * is useful for preventing intermediate network devices from dropping
+ * connections.
+ *
+ * <b>Default:</b> 30 seconds
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] interval_secs Use 0 to disable heartbeat messages
+ */
+CASS_EXPORT void
+cass_cluster_set_connection_heartbeat_interval(CassCluster* cluster,
+                                               unsigned interval_secs);
+
+/**
+ * Sets the amount of time a connection is allowed to be without a successful
+ * heartbeat response before being terminated and scheduled for reconnection.
+ *
+ * <b>Default:</b> 60 seconds
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] timeout_secs
+ */
+CASS_EXPORT void
+cass_cluster_set_connection_idle_timeout(CassCluster* cluster,
+                                         unsigned timeout_secs);
+
+/**
+ * Sets the retry policy used for all requests unless overridden by setting
+ * a retry policy on a statement or a batch.
+ *
+ * <b>Default:</b> The same policy as would be created by the function:
+ * cass_retry_policy_default_new(). This policy will retry on a read timeout
+ * if there was enough replicas, but no data present, on a write timeout if a
+ * logged batch request failed to write the batch log, and on a unavailable
+ * error it retries using a new host. In all other cases the default policy
+ * will return an error.
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] retry_policy
+ *
+ * @see cass_retry_policy_default_new()
+ * @see cass_statement_set_retry_policy()
+ * @see cass_batch_set_retry_policy()
+ */
+CASS_EXPORT void
+cass_cluster_set_retry_policy(CassCluster* cluster,
+                              CassRetryPolicy* retry_policy);
+
+/**
+ * Enable/Disable retrieving and updating schema metadata. If disabled
+ * this is allows the driver to skip over retrieving and updating schema
+ * metadata, but it also disables the usage of token-aware routing and
+ * cass_session_get_schema() will always return an empty object. This can be
+ * useful for reducing the startup overhead of short-lived sessions.
+ *
+ * <b>Default:</b> cass_true (enabled).
+ *
+ * @public @memberof CassCluster
+ *
+ * @param[in] cluster
+ * @param[in] enabled
+ *
+ * @see cass_session_get_schema()
+ * @see cass_cluster_set_token_aware_routing();
+ */
+CASS_EXPORT void
+cass_cluster_set_use_schema(CassCluster* cluster,
+                            cass_bool_t enabled);
 
 /***********************************************************************************
  *
@@ -1279,8 +1555,8 @@ cass_session_execute_batch(CassSession* session,
                            const CassBatch* batch);
 
 /**
- * Gets a copy of this session's schema metadata. The returned
- * copy of the schema metadata is not updated. This function
+ * Gets a snapshot of this session's schema metadata. The returned
+ * snapshot of the schema metadata is not updated. This function
  * must be called again to retrieve any schema changes since the
  * previous call.
  *
@@ -1291,8 +1567,8 @@ cass_session_execute_batch(CassSession* session,
  *
  * @see cass_schema_free()
  */
-CASS_EXPORT const CassSchema*
-cass_session_get_schema(CassSession* session);
+CASS_EXPORT const CassSchemaMeta*
+cass_session_get_schema_meta(const CassSession* session);
 
 /**
  * Gets a copy of this session's performance/diagnostic metrics.
@@ -1305,166 +1581,790 @@ cass_session_get_schema(CassSession* session);
  * @see cass_schema_free()
  */
 CASS_EXPORT void
-cass_session_get_metrics(CassSession* session,
+cass_session_get_metrics(const CassSession* session,
                          CassMetrics* output);
 
 /***********************************************************************************
  *
- * Schema metadata
+ * Schema Metadata
  *
  ***********************************************************************************/
 
 /**
- * Frees a schema instance.
+ * Frees a schema metadata instance.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassSchemaMeta
  *
- * @param[in] schema
+ * @param[in] schema_meta
  */
 CASS_EXPORT void
-cass_schema_free(const CassSchema* schema);
+cass_schema_meta_free(const CassSchemaMeta* schema_meta);
 
 /**
- * Gets a the metadata for the provided keyspace name.
+ * Gets the version of the schema metadata snapshot.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassSchemaMeta
  *
- * @param[in] schema
- * @param[in] keyspace
- * @return The schema metadata for a keyspace. NULL if keyspace does not exist.
- *
- * @see cass_schema_meta_get_entry()
- * @see cass_schema_meta_get_field()
- * @see cass_schema_meta_type()
- * @see cass_iterator_from_schema_meta()
+ * @param[in] schema_meta
  */
-CASS_EXPORT const CassSchemaMeta*
-cass_schema_get_keyspace(const CassSchema* schema,
-                         const char* keyspace);
+CASS_EXPORT cass_uint32_t
+cass_schema_meta_snapshot_version(const CassSchemaMeta* schema_meta);
 
 /**
- * Same as cass_schema_get_keyspace(), but with lengths for string
+ * Gets the keyspace metadata for the provided keyspace name.
+ *
+ * @public @memberof CassSchemaMeta
+ *
+ * @param[in] schema_meta
+ * @param[in] keyspace
+ *
+ * @return The metadata for a keyspace. NULL if keyspace does not exist.
+ */
+CASS_EXPORT const CassKeyspaceMeta*
+cass_schema_meta_keyspace_by_name(const CassSchemaMeta* schema_meta,
+                                  const char* keyspace);
+
+/**
+ * Same as cass_schema_meta_keyspace_by_name(), but with lengths for string
  * parameters.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassSchemaMeta
  *
- * @param[in] schema
+ * @param[in] schema_meta
  * @param[in] keyspace
  * @param[in] keyspace_length
- * @return same as cass_schema_get_keyspace()
+ * @return same as cass_schema_meta_keyspace_by_name()
  *
- * @see cass_schema_get_keyspace()
+ * @see cass_schema_meta_keyspace_by_name()
  */
-CASS_EXPORT const CassSchemaMeta*
-cass_schema_get_keyspace_n(const CassSchema* schema,
-                           const char* keyspace,
-                           size_t keyspace_length);
+CASS_EXPORT const CassKeyspaceMeta*
+cass_schema_meta_keyspace_by_name_n(const CassSchemaMeta* schema_meta,
+                                    const char* keyspace,
+                                    size_t keyspace_length);
 
 /**
- * Gets the type of the specified schema metadata.
+ * Gets the table metadata for the provided table name.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] meta
- * @return The type of the schema metadata
+ * @param[in] keyspace_meta
+ * @param[in] table
+ *
+ * @return The metadata for a table. NULL if table does not exist.
  */
-CASS_EXPORT CassSchemaMetaType
-cass_schema_meta_type(const CassSchemaMeta* meta);
+CASS_EXPORT const CassTableMeta*
+cass_keyspace_meta_table_by_name(const CassKeyspaceMeta* keyspace_meta,
+                                 const char* table);
 
 /**
- * Gets a metadata entry for the provided table/column name.
- *
- * @public @memberof CassSchemaMeta
- *
- * @param[in] meta
- * @param[in] name The name of a table or column
- * @return The schema metadata for a table/column. NULL if table/column does not exist.
- *
- * @see cass_schema_meta_get_entry()
- * @see cass_schema_meta_get_field()
- * @see cass_schema_meta_type()
- * @see cass_iterator_from_schema_meta()
- * @see cass_iterator_fields_from_schema_meta()
- */
-CASS_EXPORT const CassSchemaMeta*
-cass_schema_meta_get_entry(const CassSchemaMeta* meta,
-                           const char* name);
-
-/**
- * Same as cass_schema_meta_get_entry(), but with lengths for string
+ * Same as cass_keyspace_meta_table_by_name(), but with lengths for string
  * parameters.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] meta
- * @param[in] name
- * @param[in] name_length
- * @return same as cass_schema_meta_get_entry()
+ * @param[in] keyspace_meta
+ * @param[in] table
+ * @param[in] table_length
+ * @return same as cass_keyspace_meta_table_by_name()
  *
- * @see cass_schema_meta_get_entry()
+ * @see cass_keyspace_meta_table_by_name()
  */
-CASS_EXPORT const CassSchemaMeta*
-cass_schema_meta_get_entry_n(const CassSchemaMeta* meta,
-                             const char* name,
-                             size_t name_length);
+CASS_EXPORT const CassTableMeta*
+cass_keyspace_meta_table_by_name_n(const CassKeyspaceMeta* keyspace_meta,
+                                   const char* table,
+                                   size_t table_length);
 
 /**
- * Gets a metadata field for the provided name.
+ * Gets the data type for the provided type name.
  *
- * @public @memberof CassSchemaMeta
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] meta
- * @param[in] name The name of a field
- * @return A schema metadata field. NULL if the field does not exist.
+ * @param[in] keyspace_meta
+ * @param[in] type
  *
- * @see cass_schema_meta_field_value()
+ * @return The data type for a user defined type. NULL if type does not exist.
  */
-CASS_EXPORT const CassSchemaMetaField*
-cass_schema_meta_get_field(const CassSchemaMeta* meta,
-                           const char* name);
+CASS_EXPORT const CassDataType*
+cass_keyspace_meta_user_type_by_name(const CassKeyspaceMeta* keyspace_meta,
+                                     const char* type);
 
 /**
- * Same as cass_schema_meta_get_field(), but with lengths for string
+ * Same as cass_keyspace_meta_type_by_name(), but with lengths for string
  * parameters.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] meta
- * @param[in] name
- * @param[in] name_length
- * @return same as cass_schema_meta_get_field()
+ * @param[in] keyspace_meta
+ * @param[in] type
+ * @param[in] type_length
+ * @return same as cass_keyspace_meta_type_by_name()
  *
- * @see cass_schema_meta_get_field()
+ * @see cass_keyspace_meta_type_by_name()
  */
-CASS_EXPORT const CassSchemaMetaField*
-cass_schema_meta_get_field_n(const CassSchemaMeta* meta,
-                             const char* name,
-                             size_t name_length);
+CASS_EXPORT const CassDataType*
+cass_keyspace_meta_user_type_by_name_n(const CassKeyspaceMeta* keyspace_meta,
+                                       const char* type,
+                                       size_t type_length);
 
 /**
- * Gets the name for a schema metadata field
+ * Gets the function metadata for the provided function name.
  *
- * @public @memberof CassSchemaMetaField
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] field
- * @param[out] name The name of the metadata data field
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @param[in] arguments A comma delimited list of CQL types (e.g "text,int,...")
+ * describing the function's signature.
+ *
+ * @return The data function for a user defined function. NULL if function does not exist.
+ */
+CASS_EXPORT const CassFunctionMeta*
+cass_keyspace_meta_function_by_name(const CassKeyspaceMeta* keyspace_meta,
+                                    const char* name,
+                                    const char* arguments);
+
+/**
+ * Same as cass_keyspace_meta_function_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] arguments
+ * @param[in] arguments_length
+ * @return same as cass_keyspace_meta_function_by_name()
+ *
+ * @see cass_keyspace_meta_function_by_name()
+ */
+CASS_EXPORT const CassFunctionMeta*
+cass_keyspace_meta_function_by_name_n(const CassKeyspaceMeta* keyspace_meta,
+                                      const char* name,
+                                      size_t name_length,
+                                      const char* arguments,
+                                      size_t arguments_length);
+
+/**
+ * Gets the aggregate metadata for the provided aggregate name.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @param[in] arguments A comma delimited list of CQL types (e.g "text,int,...")
+ * describing the aggregate's signature.
+ *
+ * @return The data aggregate for a user defined aggregate. NULL if aggregate does not exist.
+ */
+CASS_EXPORT const CassAggregateMeta*
+cass_keyspace_meta_aggregate_by_name(const CassKeyspaceMeta* keyspace_meta,
+                                     const char* name,
+                                     const char* arguments);
+
+/**
+ * Same as cass_keyspace_meta_aggregate_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] arguments
+ * @param[in] arguments_length
+ * @return same as cass_keyspace_meta_aggregate_by_name()
+ *
+ * @see cass_keyspace_meta_aggregate_by_name()
+ */
+CASS_EXPORT const CassAggregateMeta*
+cass_keyspace_meta_aggregate_by_name_n(const CassKeyspaceMeta* keyspace_meta,
+                                       const char* name,
+                                       size_t name_length,
+                                       const char* arguments,
+                                       size_t arguments_length);
+
+/**
+ * Gets the name of the keyspace.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @param[out] name
  * @param[out] name_length
  */
 CASS_EXPORT void
-cass_schema_meta_field_name(const CassSchemaMetaField* field,
-                            const char** name,
-                            size_t* name_length);
+cass_keyspace_meta_name(const CassKeyspaceMeta* keyspace_meta,
+                        const char** name,
+                        size_t* name_length);
 
 /**
- * Gets the value for a schema metadata field
+ * Gets a metadata field for the provided name. Metadata fields allow direct
+ * access to the column data found in the underlying "keyspaces" metadata table.
  *
- * @public @memberof CassSchemaMetaField
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] field
- * @return The value of the metadata data field
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @return A metadata field value. NULL if the field does not exist.
  */
 CASS_EXPORT const CassValue*
-cass_schema_meta_field_value(const CassSchemaMetaField* field);
+cass_keyspace_meta_field_by_name(const CassKeyspaceMeta* keyspace_meta,
+                                 const char* name);
+
+/**
+ * Same as cass_keyspace_meta_field_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_keyspace_meta_field_by_name()
+ *
+ * @see cass_keyspace_meta_field_by_name()
+ */
+CASS_EXPORT const CassValue*
+cass_keyspace_meta_field_by_name_n(const CassKeyspaceMeta* keyspace_meta,
+                                   const char* name,
+                                   size_t name_length);
+
+/**
+ * Gets the column metadata for the provided column name.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] column
+ *
+ * @return The metadata for a column. NULL if column does not exist.
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_table_meta_column_by_name(const CassTableMeta* table_meta,
+                               const char* column);
+
+/**
+ * Same as cass_table_meta_column_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] column
+ * @param[in] column_length
+ * @return same as cass_table_meta_column_by_name()
+ *
+ * @see cass_table_meta_column_by_name()
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_table_meta_column_by_name_n(const CassTableMeta* table_meta,
+                                 const char* column,
+                                 size_t column_length);
+
+/**
+ * Gets the name of the table.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[out] name
+ * @param[out] name_length
+ */
+CASS_EXPORT void
+cass_table_meta_name(const CassTableMeta* table_meta,
+                     const char** name,
+                     size_t* name_length);
+
+/**
+ * Gets the total number of columns for the table.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @return The total column count.
+ */
+CASS_EXPORT size_t
+cass_table_meta_column_count(const CassTableMeta* table_meta);
+
+/**
+ * Gets the column metadata for the provided index.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] index
+ * @return The metadata for a column. NULL returned if the index is out of range.
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_table_meta_column(const CassTableMeta* table_meta,
+                       size_t index);
+
+/**
+ * Gets the number of columns for the table's partition key.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @return The count for the number of columns in the partition key.
+ */
+CASS_EXPORT size_t
+cass_table_meta_partition_key_count(const CassTableMeta* table_meta);
+
+/**
+ * Gets the partition key column metadata for the provided index.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] index
+ * @return The metadata for a column. NULL returned if the index is out of range.
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_table_meta_partition_key(const CassTableMeta* table_meta,
+                              size_t index);
+
+/**
+ * Gets the number of columns for the table's clustering key.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @return The count for the number of columns in the clustering key.
+ */
+CASS_EXPORT size_t
+cass_table_meta_clustering_key_count(const CassTableMeta* table_meta);
+
+/**
+ * Gets the clustering key column metadata for the provided index.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] index
+ * @return The metadata for a column. NULL returned if the index is out of range.
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_table_meta_clustering_key(const CassTableMeta* table_meta,
+                               size_t index);
+
+/**
+ * Gets a metadata field for the provided name. Metadata fields allow direct
+ * access to the column data found in the underlying "tables" metadata table.
+
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] name
+ * @return A metadata field value. NULL if the field does not exist.
+ */
+CASS_EXPORT const CassValue*
+cass_table_meta_field_by_name(const CassTableMeta* table_meta,
+                              const char* name);
+
+/**
+ * Same as cass_table_meta_field_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_table_meta_field_by_name()
+ *
+ * @see cass_table_meta_field_by_name()
+ */
+CASS_EXPORT const CassValue*
+cass_table_meta_field_by_name_n(const CassTableMeta* table_meta,
+                                const char* name,
+                                size_t name_length);
+
+/**
+ * Gets the name of the column.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @param[out] name
+ * @param[out] name_length
+ */
+CASS_EXPORT void
+cass_column_meta_name(const CassColumnMeta* column_meta,
+                      const char** name,
+                      size_t* name_length);
+
+/**
+ * Gets the type of the column.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @return The column's type.
+ */
+CASS_EXPORT CassColumnType
+cass_column_meta_type(const CassColumnMeta* column_meta);
+
+/**
+ * Gets the data type of the column.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @return The column's data type.
+ */
+CASS_EXPORT const CassDataType*
+cass_column_meta_data_type(const CassColumnMeta* column_meta);
+
+/**
+ * Gets a metadata field for the provided name. Metadata fields allow direct
+ * access to the column data found in the underlying "columns" metadata table.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @param[in] name
+ * @return A metadata field value. NULL if the field does not exist.
+ */
+CASS_EXPORT const CassValue*
+cass_column_meta_field_by_name(const CassColumnMeta* column_meta,
+                               const char* name);
+
+/**
+ * Same as cass_column_meta_field_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_column_meta_field_by_name()
+ *
+ * @see cass_column_meta_field_by_name()
+ */
+CASS_EXPORT const CassValue*
+cass_column_meta_field_by_name_n(const CassColumnMeta* column_meta,
+                                 const char* name,
+                                 size_t name_length);
+
+/**
+ * Gets the name of the function.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[out] name
+ * @param[out] name_length
+ */
+CASS_EXPORT void
+cass_function_meta_name(const CassFunctionMeta* function_meta,
+                        const char** name,
+                        size_t* name_length);
+
+/**
+ * Gets the full name of the function. The full name includes the
+ * function's name and the function's signature:
+ * "name(type1 type2.. typeN)".
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[out] full_name
+ * @param[out] full_name_length
+ */
+CASS_EXPORT void
+cass_function_meta_full_name(const CassFunctionMeta* function_meta,
+                             const char** full_name,
+                             size_t* full_name_length);
+
+/**
+ * Gets the body of the function.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[out] body
+ * @param[out] body_length
+ */
+CASS_EXPORT void
+cass_function_meta_body(const CassFunctionMeta* function_meta,
+                        const char** body,
+                        size_t* body_length);
+
+/**
+ * Gets the language of the function.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[out] language
+ * @param[out] language_length
+ */
+CASS_EXPORT void
+cass_function_meta_language(const CassFunctionMeta* function_meta,
+                            const char** language,
+                            size_t* language_length);
+
+/**
+ * Gets whether a function is called on "null".
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @return cass_true if a function is called on null, otherwise cass_false.
+ */
+CASS_EXPORT cass_bool_t
+cass_function_meta_called_on_null_input(const CassFunctionMeta* function_meta);
+
+/**
+ * Gets the number of arguments this function takes.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @return The number of arguments.
+ */
+CASS_EXPORT size_t
+cass_function_meta_argument_count(const CassFunctionMeta* function_meta);
+
+/**
+ * Gets the function's argument name and type for the provided index.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[in] index
+ * @param[out] name
+ * @param[out] name_length
+ * @param[out] type
+ * @return CASS_OK if successful, otherwise an error occurred
+ */
+CASS_EXPORT CassError
+cass_function_meta_argument(const CassFunctionMeta* function_meta,
+                            size_t index,
+                            const char** name,
+                            size_t* name_length,
+                            const CassDataType** type);
+
+/**
+ * Gets the function's argument and type for the provided name.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[in] name
+ * @return A data type. NULL if the argument does not exist.
+ */
+CASS_EXPORT const CassDataType*
+cass_function_meta_argument_type_by_name(const CassFunctionMeta* function_meta,
+                                         const char* name);
+
+/**
+ * Same as cass_function_meta_argument_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_function_meta_argument_type_by_name()
+ *
+ * @see cass_function_meta_argument_type_by_name()
+ */
+CASS_EXPORT const CassDataType*
+cass_function_meta_argument_type_by_name_n(const CassFunctionMeta* function_meta,
+                                           const char* name,
+                                           size_t name_length);
+
+/**
+ * Gets the return type of the function.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @return The data type returned by the function.
+ */
+CASS_EXPORT const CassDataType*
+cass_function_meta_return_type(const CassFunctionMeta* function_meta);
+
+/**
+ * Gets a metadata field for the provided name. Metadata fields allow direct
+ * access to the column data found in the underlying "functions" metadata table.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[in] name
+ * @return A metadata field value. NULL if the field does not exist.
+ */
+CASS_EXPORT const CassValue*
+cass_function_meta_field_by_name(const CassFunctionMeta* function_meta,
+                                 const char* name);
+
+/**
+ * Same as cass_function_meta_field_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassFunctionMeta
+ *
+ * @param[in] function_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_function_meta_field_by_name()
+ *
+ * @see cass_function_meta_field_by_name()
+ */
+CASS_EXPORT const CassValue*
+cass_function_meta_field_by_name_n(const CassFunctionMeta* function_meta,
+                                   const char* name,
+                                   size_t name_length);
+
+/**
+ * Gets the name of the aggregate.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @param[out] name
+ * @param[out] name_length
+ */
+CASS_EXPORT void
+cass_aggregate_meta_name(const CassAggregateMeta* aggregate_meta,
+                         const char** name,
+                         size_t* name_length);
+
+/**
+ * Gets the full name of the aggregate. The full name includes the
+ * aggregate's name and the aggregate's signature:
+ * "name(type1 type2.. typeN)".
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @param[out] full_name
+ * @param[out] full_name_length
+ */
+CASS_EXPORT void
+cass_aggregate_meta_full_name(const CassAggregateMeta* aggregate_meta,
+                              const char** full_name,
+                              size_t* full_name_length);
+
+/**
+ * Gets the number of arguments this aggregate takes.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The number of arguments.
+ */
+CASS_EXPORT size_t
+cass_aggregate_meta_argument_count(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets the aggregate's argument type for the provided index.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @param[in] index
+ * @return The data type for argument. NULL returned if the index is out of range.
+ */
+CASS_EXPORT const CassDataType*
+cass_aggregate_meta_argument_type(const CassAggregateMeta* aggregate_meta,
+                                  size_t index);
+
+/**
+ * Gets the return type of the aggregate.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The data type returned by the aggregate.
+ */
+CASS_EXPORT const CassDataType*
+cass_aggregate_meta_return_type(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets the state type of the aggregate.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The data type of the aggregate's state.
+ */
+CASS_EXPORT const CassDataType*
+cass_aggregate_meta_state_type(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets the function metadata for the aggregate's state function.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The function metadata for the state function.
+ */
+CASS_EXPORT const CassFunctionMeta*
+cass_aggregate_meta_state_func(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets the function metadata for the aggregates's final function.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The function metadata for the final function.
+ */
+CASS_EXPORT const CassFunctionMeta*
+cass_aggregate_meta_final_func(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets the initial condition value for the aggregate.
+ *
+ * <b>Note:</b> The value of the initial condition will always be
+ * a "varchar" type for Cassandra 3.0+.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @return The value of the initial condition.
+ */
+CASS_EXPORT const CassValue*
+cass_aggregate_meta_init_cond(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Gets a metadata field for the provided name. Metadata fields allow direct
+ * access to the column data found in the underlying "aggregates" metadata table.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @param[in] name
+ * @return A metadata field value. NULL if the field does not exist.
+ */
+CASS_EXPORT const CassValue*
+cass_aggregate_meta_field_by_name(const CassAggregateMeta* aggregate_meta,
+                                  const char* name);
+
+/**
+ * Same as cass_aggregate_meta_field_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassAggregateMeta
+ *
+ * @param[in] aggregate_meta
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_aggregate_meta_field_by_name()
+ *
+ * @see cass_aggregate_meta_field_by_name()
+ */
+CASS_EXPORT const CassValue*
+cass_aggregate_meta_field_by_name_n(const CassAggregateMeta* aggregate_meta,
+                                    const char* name,
+                                    size_t name_length);
 
 /***********************************************************************************
  *
@@ -1535,7 +2435,7 @@ cass_ssl_add_trusted_cert_n(CassSsl* ssl,
  * common name or one of its subject alternative names. This implies the
  * certificate is also present.
  *
- * Default: CASS_SSL_VERIFY_PEER_CERT
+ * <b>Default:</b> CASS_SSL_VERIFY_PEER_CERT
  *
  * @public @memberof CassSsl
  *
@@ -1686,8 +2586,7 @@ cass_future_wait_timed(CassFuture* future,
 
 /**
  * Gets the result of a successful future. If the future is not ready this method will
- * wait for the future to be set. The first successful call consumes the future, all
- * subsequent calls will return NULL.
+ * wait for the future to be set.
  *
  * @public @memberof CassFuture
  *
@@ -1699,6 +2598,22 @@ cass_future_wait_timed(CassFuture* future,
  */
 CASS_EXPORT const CassResult*
 cass_future_get_result(CassFuture* future);
+
+/**
+ * Gets the error result from a future that failed as a result of a server error. If the
+ * future is not ready this method will wait for the future to be set.
+ *
+ * @public @memberof CassFuture
+ *
+ * @param[in] future
+ * @return CassErrorResult instance if the request failed with a server error,
+ * otherwise NULL if the request was successful or the failure was not caused by
+ * a server error. The return instance must be freed using cass_error_result_free().
+ *
+ * @see cass_session_execute() and cass_session_execute_batch()
+ */
+CASS_EXPORT const CassErrorResult*
+cass_future_get_error_result(CassFuture* future);
 
 /**
  * Gets the result of a successful future. If the future is not ready this method will
@@ -1745,6 +2660,40 @@ CASS_EXPORT void
 cass_future_error_message(CassFuture* future,
                           const char** message,
                           size_t* message_length);
+
+/**
+ * Gets a the number of custom payload items from a response future. If the future is not
+ * ready this method will wait for the future to be set.
+ *
+ * @public @memberof CassFuture
+ *
+ * @param[in] future
+ * @return the number of custom payload items.
+ */
+CASS_EXPORT size_t
+cass_future_custom_payload_item_count(CassFuture* future);
+
+/**
+ * Gets a custom payload item from a response future at the specified index. If the future is not
+ * ready this method will wait for the future to be set.
+ *
+ * @public @memberof CassFuture
+ *
+ * @param[in] future
+ * @param[in] index
+ * @param[out] name
+ * @param[out] name_length
+ * @param[out] value
+ * @param[out] value_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_future_custom_payload_item(CassFuture* future,
+                                size_t index,
+                                const char** name,
+                                size_t* name_length,
+                                const cass_byte_t** value,
+                                size_t* value_size);
 
 /***********************************************************************************
  *
@@ -1856,7 +2805,7 @@ cass_statement_set_keyspace_n(CassStatement* statement,
 /**
  * Sets the statement's consistency level.
  *
- * Default: CASS_CONSISTENCY_ONE
+ * <b>Default:</b> CASS_CONSISTENCY_LOCAL_QUORUM
  *
  * @public @memberof CassStatement
  *
@@ -1871,7 +2820,7 @@ cass_statement_set_consistency(CassStatement* statement,
 /**
  * Sets the statement's serial consistency level.
  *
- * Default: Not set
+ * <b>Default:</b> Not set
  *
  * @public @memberof CassStatement
  *
@@ -1886,7 +2835,7 @@ cass_statement_set_serial_consistency(CassStatement* statement,
 /**
  * Sets the statement's page size.
  *
- * Default: -1 (Disabled)
+ * <b>Default:</b> -1 (Disabled)
  *
  * @public @memberof CassStatement
  *
@@ -1899,7 +2848,8 @@ cass_statement_set_paging_size(CassStatement* statement,
                                int page_size);
 
 /**
- * Sets the statement's paging state.
+ * Sets the statement's paging state. This can be used to get the next page of
+ * data in a multi-page query.
  *
  * @public @memberof CassStatement
  *
@@ -1910,6 +2860,68 @@ cass_statement_set_paging_size(CassStatement* statement,
 CASS_EXPORT CassError
 cass_statement_set_paging_state(CassStatement* statement,
                                 const CassResult* result);
+
+/**
+ * Sets the statement's paging state. This can be used to get the next page of
+ * data in a multi-page query.
+ *
+ * <b>Warning:</b> The paging state should not be exposed to or come from
+ * untrusted environments. The paging state could be spoofed and potentially
+ * used to gain access to other data.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] paging_state
+ * @param[in] paging_state_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ *
+ * @see cass_result_paging_state_token()
+ */
+CASS_EXPORT CassError
+cass_statement_set_paging_state_token(CassStatement* statement,
+                                      const char* paging_state,
+                                      size_t paging_state_size);
+
+/**
+ * Sets the statement's timestamp.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] timestamp
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_set_timestamp(CassStatement* statement,
+                             cass_int64_t timestamp);
+
+
+/**
+ * Sets the statement's retry policy.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] retry_policy
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_set_retry_policy(CassStatement* statement,
+                                CassRetryPolicy* retry_policy);
+
+/**
+ * Sets the statement's custom payload.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] payload
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_set_custom_payload(CassStatement* statement,
+                                  const CassCustomPayload* payload);
 
 /**
  * Binds null to a query or bound statement at the specified index.
@@ -1923,223 +2935,6 @@ cass_statement_set_paging_state(CassStatement* statement,
 CASS_EXPORT CassError
 cass_statement_bind_null(CassStatement* statement,
                          size_t index);
-
-/**
- * Binds an "int" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_int32(CassStatement* statement,
-                          size_t index,
-                          cass_int32_t value);
-
-/**
- * Binds a "bigint", "counter" or "timestamp" to a query or bound statement
- * at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_int64(CassStatement* statement,
-                          size_t index,
-                          cass_int64_t value);
-
-/**
- * Binds a "float" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_float(CassStatement* statement,
-                          size_t index,
-                          cass_float_t value);
-
-/**
- * Binds a "double" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_double(CassStatement* statement,
-                           size_t index,
-                           cass_double_t value);
-
-/**
- * Binds a "boolean" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_bool(CassStatement* statement,
-                         size_t index,
-                         cass_bool_t value);
-
-/**
- * Binds a "ascii", "text" or "varchar" to a query or bound statement
- * at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value The value is copied into the statement object; the
- * memory pointed to by this parameter can be freed after this call.
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_string(CassStatement* statement,
-                           size_t index,
-                           const char* value);
-
-/**
- * Same as cass_statement_bind_string(), but with lengths for string
- * parameters.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @param[in] value_length
- * @return same as cass_statement_bind_string()
- *
- * @see cass_statement_bind_string()
- */
-CASS_EXPORT CassError
-cass_statement_bind_string_n(CassStatement* statement,
-                             size_t index,
-                             const char* value,
-                             size_t value_length);
-
-/**
- * Binds a "blob" or "varint" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value The value is copied into the statement object; the
- * memory pointed to by this parameter can be freed after this call.
- * @param[in] value_size
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_bytes(CassStatement* statement,
-                          size_t index,
-                          const cass_byte_t* value,
-                          size_t value_size);
-
-/**
- * Binds a "uuid" or "timeuuid" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_uuid(CassStatement* statement,
-                         size_t index,
-                         CassUuid value);
-
-/**
- * Binds an "inet" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] value
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_inet(CassStatement* statement,
-                         size_t index,
-                         CassInet value);
-
-/**
- * Bind a "decimal" to a query or bound statement at the specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] varint The value is copied into the statement object; the
- * memory pointed to by this parameter can be freed after this call.
- * @param[in] varint_size
- * @param[in] scale
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_decimal(CassStatement* statement,
-                            size_t index,
-                            const cass_byte_t* varint,
-                            size_t varint_size,
-                            cass_int32_t scale);
-
-/**
- * Binds any type to a query or bound statement at the specified index. A value
- * can be copied into the resulting output buffer. This is normally reserved for
- * large values to avoid extra memory copies.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] size
- * @param[out] output
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_custom(CassStatement* statement,
-                           size_t index,
-                           size_t size,
-                           cass_byte_t** output);
-
-/**
- * Bind a "list", "map", or "set" to a query or bound statement at the
- * specified index.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] index
- * @param[in] collection The collection can be freed after this call.
- * @return CASS_OK if successful, otherwise an error occurred.
- */
-CASS_EXPORT CassError
-cass_statement_bind_collection(CassStatement* statement,
-                               size_t index,
-                               const CassCollection* collection);
-
 
 /**
  * Binds a null to all the values with the specified name.
@@ -2175,6 +2970,126 @@ cass_statement_bind_null_by_name_n(CassStatement* statement,
                                    const char* name,
                                    size_t name_length);
 
+/**
+ * Binds a "tinyint" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int8(CassStatement* statement,
+                         size_t index,
+                         cass_int8_t value);
+
+/**
+ * Binds a "tinyint" to all the values with the specified name.
+ *
+ * This can only be used with statements created by
+ * cass_prepared_bind().
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int8_by_name(CassStatement* statement,
+                                 const char* name,
+                                 cass_int8_t value);
+
+/**
+ * Same as cass_statement_bind_int8_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_statement_bind_int8_by_name()
+ *
+ * @see cass_statement_bind_int8_by_name()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int8_by_name_n(CassStatement* statement,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_int8_t value);
+
+/**
+ * Binds an "smallint" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int16(CassStatement* statement,
+                          size_t index,
+                          cass_int16_t value);
+
+/**
+ * Binds an "smallint" to all the values with the specified name.
+ *
+ * This can only be used with statements created by
+ * cass_prepared_bind().
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int16_by_name(CassStatement* statement,
+                                  const char* name,
+                                  cass_int16_t value);
+
+/**
+ * Same as cass_statement_bind_int16_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_statement_bind_int16_by_name()
+ *
+ * @see cass_statement_bind_int16_by_name()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int16_by_name_n(CassStatement* statement,
+                                    const char* name,
+                                    size_t name_length,
+                                    cass_int16_t value);
+
+/**
+ * Binds an "int" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int32(CassStatement* statement,
+                          size_t index,
+                          cass_int32_t value);
 
 /**
  * Binds an "int" to all the values with the specified name.
@@ -2215,7 +3130,76 @@ cass_statement_bind_int32_by_name_n(CassStatement* statement,
                                     cass_int32_t value);
 
 /**
- * Binds a "bigint", "counter" or "timestamp" to all values
+ * Binds a "date" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_uint32(CassStatement* statement,
+                           size_t index,
+                           cass_uint32_t value);
+
+/**
+ * Binds a "date" to all the values with the specified name.
+ *
+ * This can only be used with statements created by
+ * cass_prepared_bind().
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_uint32_by_name(CassStatement* statement,
+                                   const char* name,
+                                   cass_uint32_t value);
+
+/**
+ * Same as cass_statement_bind_uint32_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_statement_bind_uint32_by_name()
+ *
+ * @see cass_statement_bind_uint32_by_name()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_uint32_by_name_n(CassStatement* statement,
+                                     const char* name,
+                                     size_t name_length,
+                                     cass_uint32_t value);
+
+/**
+ * Binds a "bigint", "counter", "timestamp" or "time" to a query or
+ * bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_int64(CassStatement* statement,
+                          size_t index,
+                          cass_int64_t value);
+
+/**
+ * Binds a "bigint", "counter", "timestamp" or "time" to all values
  * with the specified name.
  *
  * This can only be used with statements created by
@@ -2252,6 +3236,21 @@ cass_statement_bind_int64_by_name_n(CassStatement* statement,
                                     const char* name,
                                     size_t name_length,
                                     cass_int64_t value);
+
+/**
+ * Binds a "float" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_float(CassStatement* statement,
+                          size_t index,
+                          cass_float_t value);
 
 /**
  * Binds a "float" to all the values with the specified name.
@@ -2292,6 +3291,21 @@ cass_statement_bind_float_by_name_n(CassStatement* statement,
                                     cass_float_t value);
 
 /**
+ * Binds a "double" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_double(CassStatement* statement,
+                           size_t index,
+                           cass_double_t value);
+
+/**
  * Binds a "double" to all the values with the specified name.
  *
  * This can only be used with statements created by
@@ -2328,6 +3342,22 @@ cass_statement_bind_double_by_name_n(CassStatement* statement,
                                      const char* name,
                                      size_t name_length,
                                      cass_double_t value);
+
+/**
+ * Binds a "boolean" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_bool(CassStatement* statement,
+                         size_t index,
+                         cass_bool_t value);
+
 /**
  * Binds a "boolean" to all the values with the specified name.
  *
@@ -2367,7 +3397,44 @@ cass_statement_bind_bool_by_name_n(CassStatement* statement,
                                    cass_bool_t value);
 
 /**
- * Binds a "ascii", "text" or "varchar" to all the values
+ * Binds an "ascii", "text" or "varchar" to a query or bound statement
+ * at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value The value is copied into the statement object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_string(CassStatement* statement,
+                           size_t index,
+                           const char* value);
+
+/**
+ * Same as cass_statement_bind_string(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @param[in] value_length
+ * @return same as cass_statement_bind_string()
+ *
+ * @see cass_statement_bind_string()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_string_n(CassStatement* statement,
+                             size_t index,
+                             const char* value,
+                             size_t value_length);
+
+/**
+ * Binds an "ascii", "text" or "varchar" to all the values
  * with the specified name.
  *
  * This can only be used with statements created by
@@ -2409,7 +3476,25 @@ cass_statement_bind_string_by_name_n(CassStatement* statement,
                                      size_t value_length);
 
 /**
- * Binds a "blob" or "varint" to all the values with the
+ * Binds a "blob", "varint" or "custom" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value The value is copied into the statement object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @param[in] value_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_bytes(CassStatement* statement,
+                          size_t index,
+                          const cass_byte_t* value,
+                          size_t value_size);
+
+/**
+ * Binds a "blob", "varint" or "custom" to all the values with the
  * specified name.
  *
  * This can only be used with statements created by
@@ -2427,7 +3512,7 @@ cass_statement_bind_string_by_name_n(CassStatement* statement,
 CASS_EXPORT CassError
 cass_statement_bind_bytes_by_name(CassStatement* statement,
                                   const char* name,
-                                  cass_byte_t* value,
+                                  const cass_byte_t* value,
                                   size_t value_size);
 
 /**
@@ -2449,8 +3534,23 @@ CASS_EXPORT CassError
 cass_statement_bind_bytes_by_name_n(CassStatement* statement,
                                     const char* name,
                                     size_t name_length,
-                                    cass_byte_t* value,
+                                    const cass_byte_t* value,
                                     size_t value_size);
+
+/**
+ * Binds a "uuid" or "timeuuid" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_uuid(CassStatement* statement,
+                         size_t index,
+                         CassUuid value);
 
 /**
  * Binds a "uuid" or "timeuuid" to all the values
@@ -2492,6 +3592,21 @@ cass_statement_bind_uuid_by_name_n(CassStatement* statement,
                                    CassUuid value);
 
 /**
+ * Binds an "inet" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_inet(CassStatement* statement,
+                         size_t index,
+                         CassInet value);
+
+/**
  * Binds an "inet" to all the values with the specified name.
  *
  * This can only be used with statements created by
@@ -2528,6 +3643,26 @@ cass_statement_bind_inet_by_name_n(CassStatement* statement,
                                    const char* name,
                                    size_t name_length,
                                    CassInet value);
+
+/**
+ * Bind a "decimal" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] varint The value is copied into the statement object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @param[in] varint_size
+ * @param[in] scale
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_decimal(CassStatement* statement,
+                            size_t index,
+                            const cass_byte_t* varint,
+                            size_t varint_size,
+                            cass_int32_t scale);
 
 /**
  * Binds a "decimal" to all the values with the specified name.
@@ -2577,51 +3712,23 @@ cass_statement_bind_decimal_by_name_n(CassStatement* statement,
                                       cass_int32_t scale);
 
 /**
- * Binds any type to all the values with the specified name. A value
- * can be copied into the resulting output buffer. This is normally reserved for
- * large values to avoid extra memory copies.
- *
- * This can only be used with statements created by
- * cass_prepared_bind().
+ * Bind a "list", "map" or "set" to a query or bound statement at the
+ * specified index.
  *
  * @public @memberof CassStatement
  *
  * @param[in] statement
- * @param[in] name
- * @param[in] size
- * @param[out] output
+ * @param[in] index
+ * @param[in] collection The collection can be freed after this call.
  * @return CASS_OK if successful, otherwise an error occurred.
  */
 CASS_EXPORT CassError
-cass_statement_bind_custom_by_name(CassStatement* statement,
-                                   const char* name,
-                                   size_t size,
-                                   cass_byte_t** output);
+cass_statement_bind_collection(CassStatement* statement,
+                               size_t index,
+                               const CassCollection* collection);
 
 /**
- * Same as cass_statement_bind_custom_by_name(), but with lengths for string
- * parameters.
- *
- * @public @memberof CassStatement
- *
- * @param[in] statement
- * @param[in] name
- * @param[in] name_length
- * @param[in] size
- * @param[out] output
- * @return same as cass_statement_bind_custom_by_name()
- *
- * @see cass_statement_bind_custom_by_name()
- */
-CASS_EXPORT CassError
-cass_statement_bind_custom_by_name_n(CassStatement* statement,
-                                     const char* name,
-                                     size_t name_length,
-                                     size_t size,
-                                     cass_byte_t** output);
-
-/**
- * Bind a "list", "map", or "set" to all the values with the
+ * Bind a "list", "map" or "set" to all the values with the
  * specified name.
  *
  * This can only be used with statements created by
@@ -2659,6 +3766,109 @@ cass_statement_bind_collection_by_name_n(CassStatement* statement,
                                          size_t name_length,
                                          const CassCollection* collection);
 
+/**
+ * Bind a "tuple" to a query or bound statement at the specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] tuple The tuple can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_tuple(CassStatement* statement,
+                          size_t index,
+                          const CassTuple* tuple);
+
+/**
+ * Bind a "tuple" to all the values with the specified name.
+ *
+ * This can only be used with statements created by
+ * cass_prepared_bind().
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] tuple The tuple can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_tuple_by_name(CassStatement* statement,
+                                  const char* name,
+                                  const CassTuple* tuple);
+
+/**
+ * Same as cass_statement_bind_tuple_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] tuple
+ * @return same as cass_statement_bind_tuple_by_name()
+ *
+ * @see cass_statement_bind_tuple_by_name()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_tuple_by_name_n(CassStatement* statement,
+                                    const char* name,
+                                    size_t name_length,
+                                    const CassTuple* tuple);
+
+/**
+ * Bind a user defined type to a query or bound statement at the
+ * specified index.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] index
+ * @param[in] user_type The user type can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_user_type(CassStatement* statement,
+                              size_t index,
+                              const CassUserType* user_type);
+/**
+ * Bind a user defined type to a query or bound statement with the
+ * specified name.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] user_type The user type can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_statement_bind_user_type_by_name(CassStatement* statement,
+                                      const char* name,
+                                      const CassUserType* user_type);
+
+/**
+ * Same as cass_statement_bind_user_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassStatement
+ *
+ * @param[in] statement
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] user_type
+ * @return same as cass_statement_bind_user_type_by_name()
+ *
+ * @see cass_statement_bind_collection_by_name()
+ */
+CASS_EXPORT CassError
+cass_statement_bind_user_type_by_name_n(CassStatement* statement,
+                                        const char* name,
+                                        size_t name_length,
+                                        const CassUserType* user_type);
 
 /***********************************************************************************
  *
@@ -2681,13 +3891,77 @@ cass_prepared_free(const CassPrepared* prepared);
  *
  * @public @memberof CassPrepared
  *
- * @param[in] prepared A previously prepared statement.
+ * @param[in] prepared
  * @return Returns a bound statement that must be freed.
  *
  * @see cass_statement_free()
  */
 CASS_EXPORT CassStatement*
 cass_prepared_bind(const CassPrepared* prepared);
+
+/**
+ * Gets the name of a parameter at the specified index.
+ *
+ * @public @memberof CassPrepared
+ *
+ * @param[in] prepared
+ * @param[in] index
+ * @param[out] name
+ * @param[out] name_length
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_prepared_parameter_name(const CassPrepared* prepared,
+                             size_t index,
+                             const char** name,
+                             size_t* name_length);
+
+/**
+ * Gets the data type of a parameter at the specified index.
+ *
+ * @public @memberof CassPrepared
+ *
+ * @param[in] prepared
+ * @param[in] index
+ * @return Returns a reference to the data type of the parameter. Do not free
+ * this reference as it is bound to the lifetime of the prepared.
+ */
+CASS_EXPORT const CassDataType*
+cass_prepared_parameter_data_type(const CassPrepared* prepared,
+                                  size_t index);
+
+/**
+ * Gets the data type of a parameter for the specified name.
+ *
+ * @public @memberof CassPrepared
+ *
+ * @param[in] prepared
+ * @param[in] name
+ * @return Returns a reference to the data type of the parameter. Do not free
+ * this reference as it is bound to the lifetime of the prepared.
+ */
+CASS_EXPORT const CassDataType*
+cass_prepared_parameter_data_type_by_name(const CassPrepared* prepared,
+                                          const char* name);
+
+/**
+ * Same as cass_prepared_parameter_data_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassPrepared
+ *
+ * @param[in] prepared
+ * @param[in] name
+ * @param[in] name_length
+ * @return Returns a reference to the data type of the parameter. Do not free
+ * this reference as it is bound to the lifetime of the prepared.
+ *
+ * @see cass_prepared_parameter_data_type_by_name()
+ */
+CASS_EXPORT const CassDataType*
+cass_prepared_parameter_data_type_by_name_n(const CassPrepared* prepared,
+                                            const char* name,
+                                            size_t name_length);
 
 /***********************************************************************************
  *
@@ -2733,6 +4007,60 @@ cass_batch_set_consistency(CassBatch* batch,
                            CassConsistency consistency);
 
 /**
+ * Sets the batch's serial consistency level.
+ *
+ * <b>Default:</b> Not set
+ *
+ * @public @memberof CassBatch
+ *
+ * @param[in] batch
+ * @param[in] serial_consistency
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_batch_set_serial_consistency(CassBatch* batch,
+                                  CassConsistency serial_consistency);
+
+/**
+ * Sets the batch's timestamp.
+ *
+ * @public @memberof CassBatch
+ *
+ * @param[in] batch
+ * @param[in] timestamp
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_batch_set_timestamp(CassBatch* batch,
+                         cass_int64_t timestamp);
+
+/**
+ * Sets the batch's retry policy.
+ *
+ * @public @memberof CassBatch
+ *
+ * @param[in] batch
+ * @param[in] retry_policy
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_batch_set_retry_policy(CassBatch* batch,
+                            CassRetryPolicy* retry_policy);
+
+/**
+ * Sets the batch's custom payload.
+ *
+ * @public @memberof CassBatch
+ *
+ * @param[in] batch
+ * @param[in] payload
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_batch_set_custom_payload(CassBatch* batch,
+                              const CassCustomPayload* payload);
+
+/**
  * Adds a statement to a batch.
  *
  * @public @memberof CassBatch
@@ -2745,6 +4073,385 @@ CASS_EXPORT CassError
 cass_batch_add_statement(CassBatch* batch,
                          CassStatement* statement);
 
+/***********************************************************************************
+ *
+ * Data type
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new data type with value type.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] type
+ * @return Returns a data type that must be freed.
+ *
+ * @see cass_data_type_free()
+ */
+CASS_EXPORT CassDataType*
+cass_data_type_new(CassValueType type);
+
+/**
+ * Creates a new data type from an existing data type.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ * @return Returns a data type that must be freed.
+ *
+ * @see cass_data_type_free()
+ */
+CASS_EXPORT CassDataType*
+cass_data_type_new_from_existing(const CassDataType* data_type);
+
+/**
+ * Creates a new tuple data type.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] item_count The number of items in the tuple
+ * @return Returns a data type that must be freed.
+ *
+ * @see cass_data_type_free()
+ */
+CASS_EXPORT CassDataType*
+cass_data_type_new_tuple(size_t item_count);
+
+/**
+ * Creates a new UDT (user defined type) data type.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] field_count The number of fields in the UDT
+ * @return Returns a data type that must be freed.
+ *
+ * @see cass_data_type_free()
+ */
+CASS_EXPORT CassDataType*
+cass_data_type_new_udt(size_t field_count);
+
+/**
+ * Frees a data type instance.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ */
+CASS_EXPORT void
+cass_data_type_free(CassDataType* data_type);
+
+/**
+ * Gets the value type of the specified data type.
+ *
+ * @param[in] data_type
+ * @return The value type
+ */
+CASS_EXPORT CassValueType
+cass_data_type_type(const CassDataType* data_type);
+
+/**
+ * Gets the type name of a UDT data type.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[out] type_name
+ * @param[out] type_name_length
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_type_name(const CassDataType* data_type,
+                         const char** type_name,
+                         size_t* type_name_length);
+
+/**
+ * Sets the type name of a UDT data type.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] type_name
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_type_name(CassDataType* data_type,
+                             const char* type_name);
+
+/**
+ * Same as cass_data_type_set_type_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ * @param[in] type_name
+ * @param[in] type_name_length
+ * @return Returns a data type that must be freed.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_type_name_n(CassDataType* data_type,
+                               const char* type_name,
+                               size_t type_name_length);
+
+/**
+ * Gets the type name of a UDT data type.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[out] keyspace
+ * @param[out] keyspace_length
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_keyspace(const CassDataType* data_type,
+                        const char** keyspace,
+                        size_t* keyspace_length);
+
+/**
+ * Sets the keyspace of a UDT data type.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] keyspace
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_keyspace(CassDataType* data_type,
+                            const char* keyspace);
+
+/**
+ * Same as cass_data_type_set_keyspace(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ * @param[in] keyspace
+ * @param[in] keyspace_length
+ * @return Returns a data type that must be freed.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_keyspace_n(CassDataType* data_type,
+                              const char* keyspace,
+                              size_t keyspace_length);
+
+/**
+ * Gets the class name of a custom data type.
+ *
+ * <b>Note:</b> Only valid for custom data types.
+ *
+ * @param[in] data_type
+ * @param[out] class_name
+ * @param[out] class_name_length
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_class_name(CassDataType* data_type,
+                          const char** class_name,
+                          size_t* class_name_length);
+
+/**
+ * Sets the class name of a custom data type.
+ *
+ * <b>Note:</b> Only valid for custom data types.
+ *
+ * @param[in] data_type
+ * @param[in] class_name
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_class_name(CassDataType* data_type,
+                              const char* class_name);
+
+/**
+ * Same as cass_data_type_set_class_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ * @param[in] class_name
+ * @param[in] class_name_length
+ * @return Returns a data type that must be freed.
+ */
+CASS_EXPORT CassError
+cass_data_type_set_class_name_n(CassDataType* data_type,
+                                const char* class_name,
+                                size_t class_name_length);
+
+/**
+ * Gets the sub-data type count of a UDT (user defined type), tuple
+ * or collection.
+ *
+ * <b>Note:</b> Only valid for UDT, tuple and collection data types.
+ *
+ * @param[in] data_type
+ * @return Returns the number of sub-data types
+ */
+CASS_EXPORT size_t
+cass_data_sub_type_count(const CassDataType* data_type);
+
+/**
+ * Gets the sub-data type of a UDT (user defined type), tuple or collection at
+ * the specified index.
+ *
+ * <b>Note:</b> Only valid for UDT, tuple and collection data types.
+ *
+ * @param[in] data_type
+ * @param[in] index
+ * @return Returns a reference to a child data type. Do not free this
+ * reference as it is bound to the lifetime of the parent data type. NULL
+ * is returned if the index is out of range.
+ */
+CASS_EXPORT const CassDataType*
+cass_data_type_sub_data_type(const CassDataType* data_type,
+                             size_t index);
+
+/**
+ * Gets the sub-data type of a UDT (user defined type) at the specified index.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @return Returns a reference to a child data type. Do not free this
+ * reference as it is bound to the lifetime of the parent data type. NULL
+ * is returned if the name doesn't exist.
+ */
+CASS_EXPORT const CassDataType*
+cass_data_type_sub_data_type_by_name(const CassDataType* data_type,
+                                     const char* name);
+
+/**
+ * Same as cass_data_type_sub_data_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassDataType
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @param[in] name_length
+ * @return Returns a reference to a child data type. Do not free this
+ * reference as it is bound to the lifetime of the parent data type. NULL
+ * is returned if the name doesn't exist.
+ */
+CASS_EXPORT const CassDataType*
+cass_data_type_sub_data_type_by_name_n(const CassDataType* data_type,
+                                       const char* name,
+                                       size_t name_length);
+
+/**
+ * Gets the sub-type name of a UDT (user defined type) at the specified index.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] index
+ * @param[out] name
+ * @param[out] name_length
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_sub_type_name(const CassDataType* data_type,
+                             size_t index,
+                             const char** name,
+                             size_t* name_length);
+
+/**
+ * Adds a sub-data type to a tuple or collection.
+ *
+ * <b>Note:</b> Only valid for tuple and collection data types.
+ *
+ * @param[in] data_type
+ * @param[in] sub_data_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_type(CassDataType* data_type,
+                            const CassDataType* sub_data_type);
+
+/**
+ * Adds a sub-data type to a UDT (user defined type).
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @param[in] sub_data_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_type_by_name(CassDataType* data_type,
+                                    const char* name,
+                                    const CassDataType* sub_data_type);
+
+/**
+ * Same as cass_data_type_add_sub_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] sub_data_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_type_by_name_n(CassDataType* data_type,
+                                      const char* name,
+                                      size_t name_length,
+                                      const CassDataType* sub_data_type);
+
+/**
+ * Adds a sub-data type to a tuple or collection using a value type.
+ *
+ * <b>Note:</b> Only valid for tuple and collection data types.
+ *
+ * @param[in] data_type
+ * @param[in] sub_value_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_value_type(CassDataType* data_type,
+                                  CassValueType sub_value_type);
+
+
+/**
+ * Adds a sub-data type to a UDT (user defined type) using a value type.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @param[in] sub_value_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_value_type_by_name(CassDataType* data_type,
+                                          const char* name,
+                                          CassValueType sub_value_type);
+
+/**
+ * Same as cass_data_type_add_sub_value_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * <b>Note:</b> Only valid for UDT data types.
+ *
+ * @param[in] data_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] sub_value_type
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_data_type_add_sub_value_type_by_name_n(CassDataType* data_type,
+                                            const char* name,
+                                            size_t name_length,
+                                            CassValueType sub_value_type);
 
 /***********************************************************************************
  *
@@ -2764,7 +4471,23 @@ cass_batch_add_statement(CassBatch* batch,
  * @see cass_collection_free()
  */
 CASS_EXPORT CassCollection*
-cass_collection_new(CassCollectionType type, size_t item_count);
+cass_collection_new(CassCollectionType type,
+                    size_t item_count);
+
+/**
+ * Creates a new collection from an existing data type.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] data_type
+ * @param[in] item_count The approximate number of items in the collection.
+ * @return Returns a collection that must be freed.
+ *
+ * @see cass_collection_free();
+ */
+CASS_EXPORT CassCollection*
+cass_collection_new_from_data_type(const CassDataType* data_type,
+                                   size_t item_count);
 
 /**
  * Frees a collection instance.
@@ -2775,6 +4498,42 @@ cass_collection_new(CassCollectionType type, size_t item_count);
  */
 CASS_EXPORT void
 cass_collection_free(CassCollection* collection);
+
+/**
+ * Gets the data type of a collection.
+ *
+ * @param[in] collection
+ * @return Returns a reference to the data type of the collection. Do not free
+ * this reference as it is bound to the lifetime of the collection.
+ */
+CASS_EXPORT const CassDataType*
+cass_collection_data_type(const CassCollection* collection);
+
+/**
+ * Appends a "tinyint" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_int8(CassCollection* collection,
+                            cass_int8_t value);
+
+/**
+ * Appends an "smallint" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_int16(CassCollection* collection,
+                             cass_int16_t value);
 
 /**
  * Appends an "int" to the collection.
@@ -2790,7 +4549,22 @@ cass_collection_append_int32(CassCollection* collection,
                              cass_int32_t value);
 
 /**
- * Appends a "bigint", "counter" or "timestamp" to the collection.
+ * Appends a "date" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_uint32(CassCollection* collection,
+                              cass_uint32_t value);
+
+
+/**
+ * Appends a "bigint", "counter", "timestamp" or "time" to the
+ * collection.
  *
  * @public @memberof CassCollection
  *
@@ -2842,7 +4616,7 @@ cass_collection_append_bool(CassCollection* collection,
                             cass_bool_t value);
 
 /**
- * Appends a "ascii", "text" or "varchar" to the collection.
+ * Appends an "ascii", "text" or "varchar" to the collection.
  *
  * @public @memberof CassCollection
  *
@@ -2875,7 +4649,7 @@ cass_collection_append_string_n(CassCollection* collection,
                                 size_t value_length);
 
 /**
- * Appends a "blob" or "varint" to the collection.
+ * Appends a "blob", "varint" or "custom" to the collection.
  *
  * @public @memberof CassCollection
  *
@@ -2933,6 +4707,1312 @@ cass_collection_append_decimal(CassCollection* collection,
                                const cass_byte_t* varint,
                                size_t varint_size,
                                cass_int32_t scale);
+
+/**
+ * Appends a "list", "map" or "set" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_collection(CassCollection* collection,
+                                  const CassCollection* value);
+
+/**
+ * Appends a "tuple" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_tuple(CassCollection* collection,
+                             const CassTuple* value);
+
+/**
+ * Appends a "udt" to the collection.
+ *
+ * @public @memberof CassCollection
+ *
+ * @param[in] collection
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_collection_append_user_type(CassCollection* collection,
+                                 const CassUserType* value);
+
+/***********************************************************************************
+ *
+ * Tuple
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new tuple.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] item_count The number of items in the tuple.
+ * @return Returns a tuple that must be freed.
+ *
+ * @see cass_tuple_free()
+ */
+CASS_EXPORT CassTuple*
+cass_tuple_new(size_t item_count);
+
+/**
+ * Creates a new tuple from an existing data type.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] data_type
+ * @return Returns a tuple that must be freed.
+ *
+ * @see cass_tuple_free();
+ */
+CASS_EXPORT CassTuple*
+cass_tuple_new_from_data_type(const CassDataType* data_type);
+
+/**
+ * Frees a tuple instance.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ */
+CASS_EXPORT void
+cass_tuple_free(CassTuple* tuple);
+
+/**
+ * Gets the data type of a tuple.
+ *
+ * @param[in] tuple
+ * @return Returns a reference to the data type of the tuple. Do not free
+ * this reference as it is bound to the lifetime of the tuple.
+ */
+CASS_EXPORT const CassDataType*
+cass_tuple_data_type(const CassTuple* tuple);
+
+/**
+ * Sets an null in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_null(CassTuple* tuple, size_t index);
+
+/**
+ * Sets a "tinyint" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_int8(CassTuple* tuple,
+                    size_t index,
+                    cass_int8_t value);
+
+/**
+ * Sets an "smallint" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_int16(CassTuple* tuple,
+                     size_t index,
+                     cass_int16_t value);
+
+/**
+ * Sets an "int" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_int32(CassTuple* tuple,
+                     size_t index,
+                     cass_int32_t value);
+
+/**
+ * Sets a "date" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_uint32(CassTuple* tuple,
+                      size_t index,
+                      cass_uint32_t value);
+
+/**
+ * Sets a "bigint", "counter", "timestamp" or "time" in a tuple at the
+ * specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_int64(CassTuple* tuple,
+                     size_t index,
+                     cass_int64_t value);
+
+/**
+ * Sets a "float" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_float(CassTuple* tuple,
+                     size_t index,
+                     cass_float_t value);
+
+/**
+ * Sets a "double" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_double(CassTuple* tuple,
+                      size_t index,
+                      cass_double_t value);
+
+/**
+ * Sets a "boolean" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_bool(CassTuple* tuple,
+                    size_t index,
+                    cass_bool_t value);
+
+/**
+ * Sets an "ascii", "text" or "varchar" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value The value is copied into the tuple object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_string(CassTuple* tuple,
+                      size_t index,
+                      const char* value);
+
+/**
+ * Same as cass_tuple_set_string(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @param[in] value_length
+ * @return same as cass_tuple_set_string()
+ *
+ * @see cass_tuple_set_string();
+ */
+CASS_EXPORT CassError
+cass_tuple_set_string_n(CassTuple* tuple,
+                        size_t index,
+                        const char* value,
+                        size_t value_length);
+
+/**
+ * Sets a "blob", "varint" or "custom" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value The value is copied into the tuple object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @param[in] value_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_bytes(CassTuple* tuple,
+                     size_t index,
+                     const cass_byte_t* value,
+                     size_t value_size);
+
+/**
+ * Sets a "uuid" or "timeuuid" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_uuid(CassTuple* tuple,
+                    size_t index,
+                    CassUuid value);
+
+/**
+ * Sets an "inet" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_inet(CassTuple* tuple,
+                    size_t index,
+                    CassInet value);
+
+/**
+ * Sets a "decimal" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] varint The value is copied into the tuple object; the
+ * memory pointed to by this parameter can be freed after this call.
+ * @param[in] varint_size
+ * @param[in] scale
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_decimal(CassTuple* tuple,
+                       size_t index,
+                       const cass_byte_t* varint,
+                       size_t varint_size,
+                       cass_int32_t scale);
+
+/**
+ * Sets a "list", "map" or "set" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_collection(CassTuple* tuple,
+                          size_t index,
+                          const CassCollection* value);
+
+/**
+ * Sets a "tuple" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_tuple(CassTuple* tuple,
+                     size_t index,
+                     const CassTuple* value);
+
+/**
+ * Sets a "udt" in a tuple at the specified index.
+ *
+ * @public @memberof CassTuple
+ *
+ * @param[in] tuple
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_tuple_set_user_type(CassTuple* tuple,
+                         size_t index,
+                         const CassUserType* value);
+
+/***********************************************************************************
+ *
+ * User defined type
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new user defined type from existing data type;
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] data_type
+ * @return Returns a user defined type that must be freed. NULL is returned if
+ * the data type is not a user defined type.
+ *
+ * @see cass_user_type_free()
+ */
+CASS_EXPORT CassUserType*
+cass_user_type_new_from_data_type(const CassDataType* data_type);
+
+/**
+ * Frees a user defined type instance.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ */
+CASS_EXPORT void
+cass_user_type_free(CassUserType* user_type);
+
+/**
+ * Gets the data type of a user defined type.
+ *
+ * @param[in] user_type
+ * @return Returns a reference to the data type of the user defined type.
+ * Do not free this reference as it is bound to the lifetime of the
+ * user defined type.
+ */
+CASS_EXPORT const CassDataType*
+cass_user_type_data_type(const CassUserType* user_type);
+
+/**
+ * Sets a null in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_null(CassUserType* user_type,
+                        size_t index);
+
+/**
+ * Sets a null in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_null_by_name(CassUserType* user_type,
+                                const char* name);
+
+/**
+ * Same as cass_user_type_set_null_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @return same as cass_user_type_set_null_by_name()
+ *
+ * @see cass_user_type_set_null_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_null_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length);
+
+/**
+ * Sets a "tinyint" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int8(CassUserType* user_type,
+                        size_t index,
+                        cass_int8_t value);
+
+/**
+ * Sets a "tinyint" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int8_by_name(CassUserType* user_type,
+                                const char* name,
+                                cass_int8_t value);
+
+/**
+ * Same as cass_user_type_set_int8_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_int8_by_name()
+ *
+ * @see cass_user_type_set_int8_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int8_by_name_n(CassUserType* user_type,
+                                  const char* name,
+                                  size_t name_length,
+                                  cass_int8_t value);
+
+/**
+ * Sets an "smallint" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int16(CassUserType* user_type,
+                         size_t index,
+                         cass_int16_t value);
+
+/**
+ * Sets an "smallint" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int16_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_int16_t value);
+
+/**
+ * Same as cass_user_type_set_int16_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_int16_by_name()
+ *
+ * @see cass_user_type_set_int16_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int16_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_int16_t value);
+
+/**
+ * Sets an "int" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int32(CassUserType* user_type,
+                         size_t index,
+                         cass_int32_t value);
+
+/**
+ * Sets an "int" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int32_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_int32_t value);
+
+/**
+ * Same as cass_user_type_set_int32_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_int32_by_name()
+ *
+ * @see cass_user_type_set_int32_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int32_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_int32_t value);
+
+/**
+ * Sets a "date" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uint32(CassUserType* user_type,
+                          size_t index,
+                          cass_uint32_t value);
+
+/**
+ * Sets a "date" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uint32_by_name(CassUserType* user_type,
+                                  const char* name,
+                                  cass_uint32_t value);
+
+/**
+ * Same as cass_user_type_set_uint32_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_uint32_by_name()
+ *
+ * @see cass_user_type_set_uint32_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uint32_by_name_n(CassUserType* user_type,
+                                    const char* name,
+                                    size_t name_length,
+                                    cass_uint32_t value);
+
+
+/**
+ * Sets an "bigint", "counter", "timestamp" or "time" in a
+ * user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int64(CassUserType* user_type,
+                         size_t index,
+                         cass_int64_t value);
+
+/**
+ * Sets an "bigint", "counter", "timestamp" or "time" in a
+ * user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int64_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_int64_t value);
+
+/**
+ * Same as cass_user_type_set_int64_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_int64_by_name()
+ *
+ * @see cass_user_type_set_int64_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_int64_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_int64_t value);
+
+/**
+ * Sets a "float" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_float(CassUserType* user_type,
+                         size_t index,
+                         cass_float_t value);
+
+/**
+ * Sets a "float" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_float_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_float_t value);
+
+/**
+ * Same as cass_user_type_set_float_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_float_by_name()
+ *
+ * @see cass_user_type_set_float_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_float_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_float_t value);
+
+/**
+ * Sets an "double" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_double(CassUserType* user_type,
+                         size_t index,
+                         cass_double_t value);
+
+/**
+ * Sets an "double" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_double_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_double_t value);
+
+/**
+ * Same as cass_user_type_set_double_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_double_by_name()
+ *
+ * @see cass_user_type_set_double_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_double_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_double_t value);
+
+/**
+ * Sets a "boolean" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bool(CassUserType* user_type,
+                         size_t index,
+                         cass_bool_t value);
+
+/**
+ * Sets a "boolean" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bool_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 cass_bool_t value);
+
+/**
+ * Same as cass_user_type_set_double_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_double_by_name()
+ *
+ * @see cass_user_type_set_double_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bool_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   cass_bool_t value);
+
+
+/**
+ * Sets an "ascii", "text" or "varchar" in a user defined type at the
+ * specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_string(CassUserType* user_type,
+                          size_t index,
+                          const char* value);
+
+/**
+ * Same as cass_user_type_set_string(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @param[in] value_length
+ * @return same as cass_user_type_set_string()
+ *
+ * @see cass_user_type_set_string()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_string_n(CassUserType* user_type,
+                            size_t index,
+                            const char* value,
+                            size_t value_length);
+
+/**
+ * Sets an "ascii", "text" or "varchar" in a user defined type at the
+ * specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_string_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 const char* value);
+
+/**
+ * Same as cass_user_type_set_string_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @param[in] value_length
+ * @return same as cass_user_type_set_string_by_name()
+ *
+ * @see cass_user_type_set_string_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_string_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   const char* value,
+                                   size_t value_length);
+
+/**
+ * Sets a "blob" "varint" or "custom" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @param[in] value_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bytes(CassUserType* user_type,
+                         size_t index,
+                         const cass_byte_t* value,
+                         size_t value_size);
+
+/**
+ * Sets a "blob", "varint" or "custom" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @param[in] value_size
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bytes_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 const cass_byte_t* value,
+                                 size_t value_size);
+
+/**
+ * Same as cass_user_type_set_bytes_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @param[in] value_size
+ * @return same as cass_user_type_set_bytes_by_name()
+ *
+ * @see cass_user_type_set_bytes_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_bytes_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   const cass_byte_t* value,
+                                   size_t value_size);
+
+/**
+ * Sets a "uuid" or "timeuuid" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uuid(CassUserType* user_type,
+                         size_t index,
+                         CassUuid value);
+
+/**
+ * Sets a "uuid" or "timeuuid" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uuid_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 CassUuid value);
+
+/**
+ * Same as cass_user_type_set_uuid_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_uuid_by_name()
+ *
+ * @see cass_user_type_set_uuid_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_uuid_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   CassUuid value);
+
+/**
+ * Sets a "inet" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_inet(CassUserType* user_type,
+                         size_t index,
+                         CassInet value);
+
+/**
+ * Sets a "inet" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_inet_by_name(CassUserType* user_type,
+                                 const char* name,
+                                 CassInet value);
+
+/**
+ * Same as cass_user_type_set_inet_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_inet_by_name()
+ *
+ * @see cass_user_type_set_inet_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_inet_by_name_n(CassUserType* user_type,
+                                   const char* name,
+                                   size_t name_length,
+                                   CassInet value);
+
+/**
+ * Sets an "decimal" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] varint
+ * @param[in] varint_size
+ * @param[in] scale
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_decimal(CassUserType* user_type,
+                           size_t index,
+                           const cass_byte_t* varint,
+                           size_t varint_size,
+                           int scale);
+
+/**
+ * Sets "decimal" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] varint
+ * @param[in] varint_size
+ * @param[in] scale
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_decimal_by_name(CassUserType* user_type,
+                                   const char* name,
+                                   const cass_byte_t* varint,
+                                   size_t varint_size,
+                                   int scale);
+
+/**
+ * Same as cass_user_type_set_decimal_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] varint
+ * @param[in] varint_size
+ * @param[in] scale
+ * @return same as cass_user_type_set_decimal_by_name()
+ *
+ * @see cass_user_type_set_decimal_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_decimal_by_name_n(CassUserType* user_type,
+                                     const char* name,
+                                     size_t name_length,
+                                     const cass_byte_t* varint,
+                                     size_t varint_size,
+                                     int scale);
+
+/**
+ * Sets a "list", "map" or "set" in a user defined type at the
+ * specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_collection(CassUserType* user_type,
+                              size_t index,
+                              const CassCollection* value);
+
+/**
+ * Sets a "list", "map" or "set" in a user defined type at the
+ * specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_collection_by_name(CassUserType* user_type,
+                                      const char* name,
+                                      const CassCollection* value);
+
+/**
+ * Same as cass_user_type_set_collection_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_collection_by_name()
+ *
+ * @see cass_user_type_set_collection_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_collection_by_name_n(CassUserType* user_type,
+                                        const char* name,
+                                        size_t name_length,
+                                        const CassCollection* value);
+
+/**
+ * Sets a "tuple" in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_tuple(CassUserType* user_type,
+                              size_t index,
+                              const CassTuple* value);
+
+/**
+ * Sets a "tuple" in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_tuple_by_name(CassUserType* user_type,
+                                      const char* name,
+                                      const CassTuple* value);
+
+/**
+ * Same as cass_user_type_set_tuple_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_tuple_by_name()
+ *
+ * @see cass_user_type_set_tuple_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_tuple_by_name_n(CassUserType* user_type,
+                                        const char* name,
+                                        size_t name_length,
+                                        const CassTuple* value);
+
+/**
+ * Sets a user defined type in a user defined type at the specified index.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] index
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_user_type(CassUserType* user_type,
+                             size_t index,
+                             const CassUserType* value);
+
+/**
+ * Sets a user defined type in a user defined type at the specified name.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] value
+ * @return CASS_OK if successful, otherwise an error occurred.
+ */
+CASS_EXPORT CassError
+cass_user_type_set_user_type_by_name(CassUserType* user_type,
+                                     const char* name,
+                                     const CassUserType* value);
+
+/**
+ * Same as cass_user_type_set_user_type_by_name(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassUserType
+ *
+ * @param[in] user_type
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @return same as cass_user_type_set_user_type_by_name()
+ *
+ * @see cass_user_type_set_user_type_by_name()
+ */
+CASS_EXPORT CassError
+cass_user_type_set_user_type_by_name_n(CassUserType* user_type,
+                                       const char* name,
+                                       size_t name_length,
+                                       const CassUserType* value);
 
 /***********************************************************************************
  *
@@ -3007,6 +6087,19 @@ cass_result_column_type(const CassResult* result,
                         size_t index);
 
 /**
+ * Gets the column data type at index for the specified result.
+ *
+ * @public @memberof CassResult
+ *
+ * @param[in] result
+ * @param[in] index
+ * @return The column type at the specified index. NULL is returned if the
+ * index is out of bounds.
+ */
+CASS_EXPORT const CassDataType*
+cass_result_column_data_type(const CassResult* result, size_t index);
+
+/**
  * Gets the first row of the result.
  *
  * @public @memberof CassResult
@@ -3027,6 +6120,257 @@ cass_result_first_row(const CassResult* result);
  */
 CASS_EXPORT cass_bool_t
 cass_result_has_more_pages(const CassResult* result);
+
+/**
+ * Gets the raw paging state from the result. The paging state is bound to the
+ * lifetime of the result object. If paging state needs to live beyond the
+ * lifetime of the result object it must be copied.
+ *
+ * <b>Warning:</b> The paging state should not be exposed to or come from
+ * untrusted environments. The paging state could be spoofed and potentially
+ * used to gain access to other data.
+ *
+ * @public @memberof CassResult
+ *
+ * @param[in] result
+ * @param[out] paging_state
+ * @param[out] paging_state_size
+ * @return CASS_OK if successful, otherwise error occurred
+ *
+ * @see cass_statement_set_paging_state_token()
+ */
+CASS_EXPORT CassError
+cass_result_paging_state_token(const CassResult* result,
+                               const char** paging_state,
+                               size_t* paging_state_size);
+
+/***********************************************************************************
+ *
+ * Error result
+ *
+ ***********************************************************************************/
+
+/**
+ * Frees an error result instance.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ */
+CASS_EXPORT void
+cass_error_result_free(const CassErrorResult* error_result);
+
+/**
+ * Gets error code for the error result. This error code will always
+ * have an server error source.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The server error code
+ */
+CASS_EXPORT CassError
+cass_error_result_code(const CassErrorResult* error_result);
+
+/**
+ * Gets consistency that triggered the error result of the
+ * following types:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_READ_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_READ_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_UNAVAILABLE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The consistency that triggered the error for a read timeout,
+ * write timeout or an unavailable error result. Undefined for other
+ * error result types.
+ */
+CASS_EXPORT CassConsistency
+cass_error_result_consistency(const CassErrorResult* error_result);
+
+/**
+ * Gets the actual number of received responses, received acknowledgments
+ * or alive nodes for following error result types, respectively:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_READ_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_READ_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_UNAVAILABLE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The actual received responses for a read timeout, actual received
+ * acknowledgments for a write timeout or actual alive nodes for a unavailable
+ * error. Undefined for other error result types.
+ */
+CASS_EXPORT cass_int32_t
+cass_error_result_responses_received(const CassErrorResult* error_result);
+
+/**
+ * Gets required responses, required acknowledgments or required alive nodes
+ * needed to successfully complete the request for following error result types,
+ * respectively:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_READ_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_READ_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_UNAVAILABLE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The required responses for a read time, required acknowledgments
+ * for a write timeout or required alive nodes for an unavailable error result.
+ * Undefined for other error result types.
+ */
+CASS_EXPORT cass_int32_t
+cass_error_result_responses_required(const CassErrorResult* error_result);
+
+/**
+ * Gets the number of nodes that experienced failures for the following error types:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_READ_FAILURE</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_FAILURE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The number of nodes that failed during a read or write request.
+ */
+CASS_EXPORT cass_int32_t
+cass_error_result_num_failures(const CassErrorResult* error_result);
+
+/**
+ * Determines whether the actual data was present in the responses from the
+ * replicas for the following error result types:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_READ_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_READ_FAILURE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return cass_true if the data was present in the received responses when the
+ * read timeout occurred. Undefined for other error result types.
+ */
+CASS_EXPORT cass_bool_t
+cass_error_result_data_present(const CassErrorResult* error_result);
+
+/**
+ * Gets the write type of a request for the following error result types:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_WRITE_TIMEOUT</li>
+ *   <li>CASS_ERROR_SERVER_WRITE_FAILURE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The type of the write that timed out. Undefined for
+ * other error result types.
+ */
+CASS_EXPORT CassWriteType
+cass_error_result_write_type(const CassErrorResult* error_result);
+
+/**
+ * Gets the affected keyspace for the following error result types:
+ *
+ * <ul>
+ *   <li>CASS_ERROR_SERVER_ALREADY_EXISTS</li>
+ *   <li>CASS_ERROR_SERVER_FUNCTION_FAILURE</li>
+ * </ul>
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @param[out] keyspace
+ * @param[out] keyspace_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_error_result_keyspace(const CassErrorResult* error_result,
+                           const char** keyspace,
+                           size_t* keyspace_length);
+
+/**
+ * Gets the affected table for the already exists error
+ * (CASS_ERROR_SERVER_ALREADY_EXISTS) result type.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @param[out] table
+ * @param[out] table_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_error_result_table(const CassErrorResult* error_result,
+                        const char** table,
+                        size_t* table_length);
+
+/**
+ * Gets the affected function for the function failure error
+ * (CASS_ERROR_SERVER_FUNCTION_FAILURE) result type.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @param[out] function
+ * @param[out] function_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_error_result_function(const CassErrorResult* error_result,
+                           const char** function,
+                           size_t* function_length);
+
+/**
+ * Gets the number of argument types for the function failure error
+ * (CASS_ERROR_SERVER_FUNCTION_FAILURE) result type.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @return The number of arguments for the affected function.
+ */
+CASS_EXPORT size_t
+cass_error_num_arg_types(const CassErrorResult* error_result);
+
+/**
+ * Gets the argument type at the specified index for the function failure
+ * error (CASS_ERROR_SERVER_FUNCTION_FAILURE) result type.
+ *
+ * @public @memberof CassErrorResult
+ *
+ * @param[in] error_result
+ * @param[in] index
+ * @param[out] arg_type
+ * @param[out] arg_type_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_error_result_arg_type(const CassErrorResult* error_result,
+                           size_t index,
+                           const char** arg_type,
+                           size_t* arg_type_length);
 
 /***********************************************************************************
  *
@@ -3114,57 +6458,220 @@ CASS_EXPORT CassIterator*
 cass_iterator_from_map(const CassValue* value);
 
 /**
- * Creates a new iterator for the specified schema.
- * This can be used to iterate over keyspace entries.
+ * Creates a new iterator for the specified tuple. This can be
+ * used to iterate over values in a tuple.
  *
- * @public @memberof CassSchema
+ * @public @memberof CassValue
  *
- * @param[in] schema
- * @return A new iterator that must be freed.
+ * @param[in] value
+ * @return A new iterator that must be freed. NULL returned if the
+ * value is not a tuple.
  *
- * @see cass_iterator_get_schema_meta()
  * @see cass_iterator_free()
  */
 CASS_EXPORT CassIterator*
-cass_iterator_from_schema(const CassSchema* schema);
+cass_iterator_from_tuple(const CassValue* value);
+
+/**
+ * Creates a new iterator for the specified user defined type. This can be
+ * used to iterate over fields in a user defined type.
+ *
+ * @public @memberof CassValue
+ *
+ * @param[in] value
+ * @return A new iterator that must be freed. NULL returned if the
+ * value is not a user defined type.
+ *
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_user_type(const CassValue* value);
 
 /**
  * Creates a new iterator for the specified schema metadata.
- * This can be used to iterate over table/column entries.
+ * This can be used to iterate over keyspace.
  *
  * @public @memberof CassSchemaMeta
  *
- * @param[in] meta
+ * @param[in] schema_meta
  * @return A new iterator that must be freed.
  *
- * @see cass_iterator_get_schema_meta()
+ * @see cass_iterator_get_keyspace_meta()
  * @see cass_iterator_free()
  */
 CASS_EXPORT CassIterator*
-cass_iterator_from_schema_meta(const CassSchemaMeta* meta);
+cass_iterator_keyspaces_from_schema_meta(const CassSchemaMeta* schema_meta);
 
 /**
- * Creates a new iterator for the specified schema metadata.
- * This can be used to iterate over schema metadata fields.
+ * Creates a new iterator for the specified keyspace metadata.
+ * This can be used to iterate over tables.
  *
- * @public @memberof CassSchemaMeta
+ * @public @memberof CassKeyspaceMeta
  *
- * @param[in] meta
+ * @param[in] keyspace_meta
  * @return A new iterator that must be freed.
  *
- * @see cass_iterator_get_schema_meta_field()
+ * @see cass_iterator_get_table_meta()
  * @see cass_iterator_free()
  */
 CASS_EXPORT CassIterator*
-cass_iterator_fields_from_schema_meta(const CassSchemaMeta* meta);
+cass_iterator_tables_from_keyspace_meta(const CassKeyspaceMeta* keyspace_meta);
 
 /**
- * Advance the iterator to the next row, column, or collection item.
+ * Creates a new iterator for the specified keyspace metadata.
+ * This can be used to iterate over types.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_user_type()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_user_types_from_keyspace_meta(const CassKeyspaceMeta* keyspace_meta);
+
+/**
+ * Creates a new iterator for the specified keyspace metadata.
+ * This can be used to iterate over functions.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_function_meta()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_functions_from_keyspace_meta(const CassKeyspaceMeta* keyspace_meta);
+
+/**
+ * Creates a new iterator for the specified keyspace metadata.
+ * This can be used to iterate over aggregates.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_aggregate_meta()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_aggregates_from_keyspace_meta(const CassKeyspaceMeta* keyspace_meta);
+
+/**
+ * Creates a new fields iterator for the specified keyspace metadata. Metadata
+ * fields allow direct access to the column data found in the underlying
+ * "keyspaces" metadata table. This can be used to iterate those metadata
+ * field entries.
+ *
+ * @public @memberof CassKeyspaceMeta
+ *
+ * @param[in] keyspace_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_meta_field_name()
+ * @see cass_iterator_get_meta_field_value()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_keyspace_meta(const CassKeyspaceMeta* keyspace_meta);
+
+/**
+ * Creates a new iterator for the specified table metadata.
+ * This can be used to iterate over columns.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_column_meta()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_columns_from_table_meta(const CassTableMeta* table_meta);
+
+/**
+ * Creates a new fields iterator for the specified table metadata. Metadata
+ * fields allow direct access to the column data found in the underlying
+ * "tables" metadata table. This can be used to iterate those metadata
+ * field entries.
+ *
+ * @public @memberof CassTableMeta
+ *
+ * @param[in] table_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_meta_field_name()
+ * @see cass_iterator_get_meta_field_value()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_table_meta(const CassTableMeta* table_meta);
+
+/**
+ * Creates a new fields iterator for the specified column metadata. Metadata
+ * fields allow direct access to the column data found in the underlying
+ * "columns" metadata table. This can be used to iterate those metadata
+ * field entries.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] column_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_meta_field_name()
+ * @see cass_iterator_get_meta_field_value()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_column_meta(const CassColumnMeta* column_meta);
+
+/**
+ * Creates a new fields iterator for the specified function metadata. Metadata
+ * fields allow direct access to the column data found in the underlying
+ * "functions" metadata table. This can be used to iterate those metadata
+ * field entries.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] function_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_meta_field()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_function_meta(const CassFunctionMeta* function_meta);
+
+/**
+ * Creates a new fields iterator for the specified aggregate metadata. Metadata
+ * fields allow direct access to the column data found in the underlying
+ * "aggregates" metadata table. This can be used to iterate those metadata
+ * field entries.
+ *
+ * @public @memberof CassColumnMeta
+ *
+ * @param[in] aggregate_meta
+ * @return A new iterator that must be freed.
+ *
+ * @see cass_iterator_get_meta_field()
+ * @see cass_iterator_free()
+ */
+CASS_EXPORT CassIterator*
+cass_iterator_fields_from_aggregate_meta(const CassAggregateMeta* aggregate_meta);
+
+/**
+ * Advance the iterator to the next row, column or collection item.
  *
  * @public @memberof CassIterator
  *
  * @param[in] iterator
- * @return false if no more rows, columns, or items, otherwise true
+ * @return false if no more rows, columns or items, otherwise true
  */
 CASS_EXPORT cass_bool_t
 cass_iterator_next(CassIterator* iterator);
@@ -3181,7 +6688,7 @@ cass_iterator_next(CassIterator* iterator);
  * @return A row
  */
 CASS_EXPORT const CassRow*
-cass_iterator_get_row(CassIterator* iterator);
+cass_iterator_get_row(const CassIterator* iterator);
 
 /**
  * Gets the column value at the row iterator's current position.
@@ -3195,24 +6702,10 @@ cass_iterator_get_row(CassIterator* iterator);
  * @return A value
  */
 CASS_EXPORT const CassValue*
-cass_iterator_get_column(CassIterator* iterator);
+cass_iterator_get_column(const CassIterator* iterator);
 
 /**
- * Gets the value at the collection iterator's current position.
- *
- * Calling cass_iterator_next() will invalidate the previous
- * key returned by this method.
- *
- * @public @memberof CassIterator
- *
- * @param[in] iterator
- * @return A value
- */
-CASS_EXPORT const CassValue*
-cass_iterator_get_value(CassIterator* iterator);
-
-/**
- * Gets the value at the collection iterator's current position.
+ * Gets the value at a collection or tuple iterator's current position.
  *
  * Calling cass_iterator_next() will invalidate the previous
  * value returned by this method.
@@ -3223,7 +6716,7 @@ cass_iterator_get_value(CassIterator* iterator);
  * @return A value
  */
 CASS_EXPORT const CassValue*
-cass_iterator_get_value(CassIterator* iterator);
+cass_iterator_get_value(const CassIterator* iterator);
 
 /**
  * Gets the key at the map iterator's current position.
@@ -3237,7 +6730,7 @@ cass_iterator_get_value(CassIterator* iterator);
  * @return A value
  */
 CASS_EXPORT const CassValue*
-cass_iterator_get_map_key(CassIterator* iterator);
+cass_iterator_get_map_key(const CassIterator* iterator);
 
 
 /**
@@ -3252,11 +6745,28 @@ cass_iterator_get_map_key(CassIterator* iterator);
  * @return A value
  */
 CASS_EXPORT const CassValue*
-cass_iterator_get_map_value(CassIterator* iterator);
+cass_iterator_get_map_value(const CassIterator* iterator);
 
 /**
- * Gets the schema metadata entry at the iterator's current
- * position.
+ * Gets the field name at the user type defined iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * name returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @param[out] name
+ * @param[out] name_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_iterator_get_user_type_field_name(const CassIterator* iterator,
+                                       const char** name,
+                                       size_t* name_length);
+
+/**
+ * Gets the field value at the user type defined iterator's current position.
  *
  * Calling cass_iterator_next() will invalidate the previous
  * value returned by this method.
@@ -3264,14 +6774,13 @@ cass_iterator_get_map_value(CassIterator* iterator);
  * @public @memberof CassIterator
  *
  * @param[in] iterator
- * @return A keyspace/table/column schema metadata entry
+ * @return A value
  */
-CASS_EXPORT const CassSchemaMeta*
-cass_iterator_get_schema_meta(CassIterator* iterator);
+CASS_EXPORT const CassValue*
+cass_iterator_get_user_type_field_value(const CassIterator* iterator);
 
 /**
- * Gets the schema metadata field at the iterator's current
- * position.
+ * Gets the keyspace metadata entry at the iterator's current position.
  *
  * Calling cass_iterator_next() will invalidate the previous
  * value returned by this method.
@@ -3279,13 +6788,112 @@ cass_iterator_get_schema_meta(CassIterator* iterator);
  * @public @memberof CassIterator
  *
  * @param[in] iterator
- * @return A schema metadata field
+ * @return A keyspace metadata entry
  */
-CASS_EXPORT const CassSchemaMetaField*
-cass_iterator_get_schema_meta_field(CassIterator* iterator);
+CASS_EXPORT const CassKeyspaceMeta*
+cass_iterator_get_keyspace_meta(const CassIterator* iterator);
 
+/**
+ * Gets the table metadata entry at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A table metadata entry
+ */
+CASS_EXPORT const CassTableMeta*
+cass_iterator_get_table_meta(const CassIterator* iterator);
 
+/**
+ * Gets the type metadata entry at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A type metadata entry
+ */
+CASS_EXPORT const CassDataType*
+cass_iterator_get_user_type(const CassIterator* iterator);
 
+/**
+ * Gets the function metadata entry at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A function metadata entry
+ */
+CASS_EXPORT const CassFunctionMeta*
+cass_iterator_get_function_meta(const CassIterator* iterator);
+
+/**
+ * Gets the aggregate metadata entry at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A aggregate metadata entry
+ */
+CASS_EXPORT const CassAggregateMeta*
+cass_iterator_get_aggregate_meta(const CassIterator* iterator);
+
+/**
+ * Gets the column metadata entry at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A column metadata entry
+ */
+CASS_EXPORT const CassColumnMeta*
+cass_iterator_get_column_meta(const CassIterator* iterator);
+
+/**
+ * Gets the metadata field name at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @param[out] name
+ * @param[out] name_length
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_iterator_get_meta_field_name(const CassIterator* iterator,
+                                  const char** name,
+                                  size_t* name_length);
+
+/**
+ * Gets the metadata field value at the iterator's current position.
+ *
+ * Calling cass_iterator_next() will invalidate the previous
+ * value returned by this method.
+ *
+ * @public @memberof CassIterator
+ *
+ * @param[in] iterator
+ * @return A metadata field value
+ */
+CASS_EXPORT const CassValue*
+cass_iterator_get_meta_field_value(const CassIterator* iterator);
 
 /***********************************************************************************
  *
@@ -3347,6 +6955,44 @@ cass_row_get_column_by_name_n(const CassRow* row,
  ***********************************************************************************/
 
 /**
+ * Gets the data type of a value.
+ *
+ * @public @memberof CassValue
+ *
+ * @param[in] value
+ * @return Returns a reference to the data type of the value.
+ * Do not free this reference as it is bound to the lifetime of the value.
+ */
+CASS_EXPORT const CassDataType*
+cass_value_data_type(const CassValue* value);
+
+/**
+ * Gets an int8 for the specified value.
+ *
+ * @public @memberof CassValue
+ *
+ * @param[in] value
+ * @param[out] output
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_value_get_int8(const CassValue* value,
+                     cass_int8_t* output);
+
+/**
+ * Gets an int16 for the specified value.
+ *
+ * @public @memberof CassValue
+ *
+ * @param[in] value
+ * @param[out] output
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_value_get_int16(const CassValue* value,
+                     cass_int16_t* output);
+
+/**
  * Gets an int32 for the specified value.
  *
  * @public @memberof CassValue
@@ -3358,6 +7004,19 @@ cass_row_get_column_by_name_n(const CassRow* row,
 CASS_EXPORT CassError
 cass_value_get_int32(const CassValue* value,
                      cass_int32_t* output);
+
+/**
+ * Gets an uint32 for the specified value.
+ *
+ * @public @memberof CassValue
+ *
+ * @param[in] value
+ * @param[out] output
+ * @return CASS_OK if successful, otherwise error occurred
+ */
+CASS_EXPORT CassError
+cass_value_get_uint32(const CassValue* value,
+                      cass_uint32_t* output);
 
 /**
  * Gets an int64 for the specified value.
@@ -3466,8 +7125,6 @@ CASS_EXPORT CassError
 cass_value_get_bytes(const CassValue* value,
                      const cass_byte_t** output,
                      size_t* output_size);
-
-
 
 /**
  * Gets a decimal for the specified value.
@@ -3745,6 +7402,256 @@ cass_uuid_from_string_n(const char* str,
 
 /***********************************************************************************
  *
+ * Timestamp generators
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new server-side timestamp generator. This generator allows Cassandra
+ * to assign timestamps server-side.
+ *
+ * <b>Note:</b> This is the default timestamp generator.
+ *
+ * @public @memberof CassTimestampGen
+ *
+ * @return Returns a timestamp generator that must be freed.
+ *
+ * @see cass_timestamp_gen_free()
+ */
+CASS_EXPORT CassTimestampGen*
+cass_timestamp_gen_server_side_new();
+
+/**
+ * Creates a new monotonically increasing timestamp generator. This generates
+ * microsecond timestamps with the sub-millisecond part generated using a counter.
+ * The implementation guarantees that no more than 1000 timestamps will be generated
+ * for a given clock tick even if shared by multiple session objects. If that rate is
+ * exceeded then a warning is logged and timestamps stop incrementing until the next
+ * clock tick.
+ *
+ * <b>Note:</b> This generator is thread-safe and can be shared by multiple sessions.
+ *
+ * @public @memberof CassTimestampGen
+ *
+ * @return Returns a timestamp generator that must be freed.
+ *
+ * @see cass_timestamp_gen_free()
+ */
+CASS_EXPORT CassTimestampGen*
+cass_timestamp_gen_monotonic_new();
+
+/**
+ * Frees a timestamp generator instance.
+ *
+ * @public @memberof CassTimestampGen
+ *
+ * @param[in] timestamp_gen
+ */
+CASS_EXPORT void
+cass_timestamp_gen_free(CassTimestampGen* timestamp_gen);
+
+
+/***********************************************************************************
+ *
+ * Retry policies
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new default retry policy.
+ *
+ * This policy retries queries in the following cases:
+ * <ul>
+ *   <li>On a read timeout, if enough replicas replied but data was not received.</li>
+ *   <li>On a write timeout, if a timeout occurs while writing the distributed batch log</li>
+ *   <li>On unavailable, it will move to the next host</li>
+ * </ul>
+ *
+ * In all other cases the error will be returned.
+ *
+ * This policy always uses the query's original consistency level.
+ *
+ * @public @memberof CassRetryPolicy
+ *
+ * @return Returns a retry policy that must be freed.
+ *
+ * @see cass_retry_policy_free()
+ */
+CASS_EXPORT CassRetryPolicy*
+cass_retry_policy_default_new();
+
+/**
+ * Creates a new downgrading consistency retry policy.
+ *
+ * <b>Important:</b> This policy may attempt to retry requests with a lower
+ * consistency level. Using this policy can break consistency guarantees.
+ *
+ * This policy will retry in the same scenarios as the default policy, but
+ * it will also retry in the following cases:
+ * <ul>
+ *   <li>On a read timeout, if some replicas responded but is lower than
+ *   required by the current consistency level then retry with a lower
+ *   consistency level.</li>
+ *   <li>On a write timeout, Retry unlogged batches at a lower consistency level
+ *   if at least one replica responded. For single queries and batch if any
+ *    replicas responded then consider the request successful and swallow the
+ *    error.</li>
+ *   <li>On unavailable, retry at a lower consistency if at lease one replica
+ *   responded.</li>
+ * </ul>
+ *
+ * This goal of this policy is to attempt to save a request if there's any
+ * chance of success. A writes succeeds as long as there's a single copy
+ * persisted and a read will succeed if there's some data available even
+ * if it increases the risk of reading stale data.
+ *
+ * @public @memberof CassRetryPolicy
+ *
+ * @return Returns a retry policy that must be freed.
+ *
+ * @see cass_retry_policy_free()
+ */
+CASS_EXPORT CassRetryPolicy*
+cass_retry_policy_downgrading_consistency_new();
+
+/**
+ * Creates a new fallthrough retry policy.
+ *
+ * This policy never retries or ignores a server-side failure. The error
+ * is always returned.
+ *
+ * @public @memberof CassRetryPolicy
+ *
+ * @return Returns a retry policy that must be freed.
+ *
+ * @see cass_retry_policy_free()
+ */
+CASS_EXPORT CassRetryPolicy*
+cass_retry_policy_fallthrough_new();
+
+/**
+ * Creates a new logging retry policy.
+ *
+ * This policy logs the retry decision of its child policy. Logging is
+ * done using CASS_LOG_INFO.
+ *
+ * @public @memberof CassRetryPolicy
+ *
+ * @param[in] child_retry_policy
+ * @return Returns a retry policy that must be freed. NULL is returned if
+ * the child_policy is a logging retry policy.
+ *
+ * @see cass_retry_policy_free()
+ */
+CASS_EXPORT CassRetryPolicy*
+cass_retry_policy_logging_new(CassRetryPolicy* child_retry_policy);
+
+/**
+ * Frees a retry policy instance.
+ *
+ * @public @memberof CassRetryPolicy
+ *
+ * @param[in] policy
+ */
+CASS_EXPORT void
+cass_retry_policy_free(CassRetryPolicy* policy);
+
+/***********************************************************************************
+ *
+ * Custom payload
+ *
+ ***********************************************************************************/
+
+/**
+ * Creates a new custom payload.
+ *
+ * @public @memberof CassCustomPayload
+ *
+ * @return Returns a custom payload that must be freed.
+ *
+ * @see cass_custom_payload_free()
+ */
+CASS_EXPORT CassCustomPayload*
+cass_custom_payload_new();
+
+/**
+ * Frees a custom payload instance.
+ *
+ * @public @memberof CassCustomPayload
+ *
+ * @param[in] payload
+ */
+CASS_EXPORT void
+cass_custom_payload_free(CassCustomPayload* payload);
+
+/**
+ * Sets an item to the custom payload.
+ *
+ * @public @memberof CassCustomPayload
+ *
+ * @param[in] payload
+ * @param[in] name
+ * @param[in] value
+ * @param[in] value_size
+ */
+CASS_EXPORT void
+cass_custom_payload_set(CassCustomPayload* payload,
+                        const char* name,
+                        const cass_byte_t* value,
+                        size_t value_size);
+
+/**
+ * Same as cass_custom_payload_set(), but with lengths for string
+ * parameters.
+ *
+ * @public @memberof CassInet
+ *
+ * @param[in] payload
+ * @param[in] name
+ * @param[in] name_length
+ * @param[in] value
+ * @param[in] value_size
+ */
+CASS_EXPORT void
+cass_custom_payload_set_n(CassCustomPayload* payload,
+                          const char* name,
+                          size_t name_length,
+                          const cass_byte_t* value,
+                          size_t value_size);
+
+/***********************************************************************************
+ *
+ * Consistency
+ *
+ ***********************************************************************************/
+
+/**
+ * Gets the string for a consistency.
+ *
+ * @param[in] consistency
+ * @return A null-terminated string for the consistency.
+ * Example: "ALL", "ONE", "QUORUM", etc.
+ */
+CASS_EXPORT const char*
+cass_consistency_string(CassConsistency consistency);
+
+/***********************************************************************************
+ *
+ * Write type
+ *
+ ***********************************************************************************/
+/**
+ * Gets the string for a write type.
+ *
+ * @param[in] write_type
+ * @return A null-terminated string for the write type.
+ * Example: "BATCH", "SIMPLE", "COUNTER", etc.
+ */
+CASS_EXPORT const char*
+cass_write_type_string(CassWriteType write_type);
+
+/***********************************************************************************
+ *
  * Error
  *
  ***********************************************************************************/
@@ -3768,16 +7675,20 @@ cass_error_desc(CassError error);
  * Explicitly wait for the log to flush and deallocate resources.
  * This *MUST* be the last call using the library. It is an error
  * to call any cass_*() functions after this call.
+ *
+ * @deprecated This is no longer useful and does nothing. Expect this to be
+ * removed in a few releases.
  */
-void cass_log_cleanup();
+CASS_EXPORT void
+CASS_DEPRECATED(cass_log_cleanup());
 
 /**
  * Sets the log level.
  *
- * <b>Note:</b>: This needs to be done before any call that might log, such as
+ * <b>Note:</b> This needs to be done before any call that might log, such as
  * any of the cass_cluster_*() or cass_ssl_*() functions.
  *
- * Default: CASS_LOG_WARN
+ * <b>Default:</b> CASS_LOG_WARN
  *
  * @param[in] log_level
  */
@@ -3787,10 +7698,10 @@ cass_log_set_level(CassLogLevel log_level);
 /**
  * Sets a callback for handling logging events.
  *
- * <b>Note:</b>: This needs to be done before any call that might log, such as
+ * <b>Note:</b> This needs to be done before any call that might log, such as
  * any of the cass_cluster_*() or cass_ssl_*() functions.
  *
- * Default: An internal callback that prints to stderr
+ * <b>Default:</b> An internal callback that prints to stderr
  *
  * @param[in] data An opaque data object passed to the callback.
  * @param[in] callback A callback that handles logging events. This is
@@ -3803,15 +7714,18 @@ cass_log_set_callback(CassLogCallback callback,
 /**
  * Sets the log queue size.
  *
- * <b>Note:</b>: This needs to be done before any call that might log, such as
+ * <b>Note:</b> This needs to be done before any call that might log, such as
  * any of the cass_cluster_*() or cass_ssl_*() functions.
  *
- * Default: 2048
+ * <b>Default:</b> 2048
+ *
+ * @deprecated This is no longer useful and does nothing. Expect this to be
+ * removed in a few releases.
  *
  * @param[in] queue_size
  */
 CASS_EXPORT void
-cass_log_set_queue_size(size_t queue_size);
+CASS_DEPRECATED(cass_log_set_queue_size(size_t queue_size));
 
 /**
  * Gets the string for a log level.
@@ -3894,6 +7808,45 @@ CASS_EXPORT CassError
 cass_inet_from_string_n(const char* str,
                         size_t str_length,
                         CassInet* output);
+
+/***********************************************************************************
+ *
+ * Date/Time
+ *
+ ************************************************************************************/
+
+/**
+ * Converts a unix timestamp (in seconds) to the Cassandra "date" type. The "date" type
+ * represents the number of days since the Epoch (1970-01-01) with the Epoch centered at
+ * the value 2^31.
+ *
+ * @param[in] epoch_secs
+ * @return the number of days since the date -5877641-06-23
+ */
+CASS_EXPORT cass_uint32_t
+cass_date_from_epoch(cass_int64_t epoch_secs);
+
+/**
+ * Converts a unix timestamp (in seconds) to the Cassandra "time" type. The "time" type
+ * represents the number of nanoseconds since midnight (range 0 to 86399999999999).
+ *
+ * @param[in] epoch_secs
+ * @return nanoseconds since midnight
+ */
+CASS_EXPORT cass_int64_t
+cass_time_from_epoch(cass_int64_t epoch_secs);
+
+/**
+ * Combines the Cassandra "date" and "time" types to Epoch time in seconds.
+ *
+ * @param[in] date
+ * @param[in] time
+ * @return Epoch time in seconds. Negative times are possible if the date
+ * occurs before the Epoch (1970-1-1).
+ */
+CASS_EXPORT cass_int64_t
+cass_date_time_to_epoch(cass_uint32_t date,
+                        cass_int64_t time);
 
 #ifdef __cplusplus
 } /* extern "C" */

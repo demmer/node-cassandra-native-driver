@@ -93,7 +93,7 @@ describe('type conversions', function() {
 
     var i = 0;
     _.each(tests, function(t) {
-        describe('supports ' + t.test || t.type, function() {
+        describe('supports ' + (t.test || t.type), function() {
             var table = 'hint_test_' + t.type;
             var fields = {key: 'varchar', value: t.type, other: 'int'};
             var key_type = types.CASS_VALUE_TYPE_VARCHAR;
