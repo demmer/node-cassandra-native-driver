@@ -66,7 +66,7 @@ describe('batch queries', function() {
                 throw new Error('unexpected success');
             })
             .catch(function(err) {
-                expect(err).match(/Expected 4 or 0 byte int/);
+                expect(err).match(/Invalid unset value/);
             });
     });
 
@@ -109,7 +109,7 @@ describe('batch queries', function() {
             throw new Error('unexpected success');
         })
         .catch(function(err) {
-            expect(err).match(/unconfigured columnfamily/);
+            expect(err.toString()).match(/unconfigured table/);
         });
     });
 
